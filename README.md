@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://i.ibb.co/Y4VjPzzV/646196246564004446-1.jpg" alt="Profile banner" width="94%" />
+  <img src="./assets/banner-apple.png" alt="Profile banner" width="94%" />
 </p>
 
 <h1 align="center">Shadow</h1>
@@ -9,41 +9,34 @@
 </p>
 
 <p align="center">
-  <a href="https://verabot.xyz"><img src="https://img.shields.io/badge/Vera-Website-A78BFA?style=flat-square&logo=discord&logoColor=white" alt="Vera website" /></a>
-  <a href="https://github.com/ShadowUR0?tab=repositories"><img src="https://img.shields.io/badge/GitHub-Repositories-181717?style=flat-square&logo=github&logoColor=white" alt="GitHub repositories" /></a>
+  <a href="https://verabot.xyz"><b>Vera ↗</b></a>
+  &nbsp;&nbsp;·&nbsp;&nbsp;
+  <a href="https://github.com/ShadowUR0?tab=repositories"><b>Repositories ↗</b></a>
 </p>
 
----
+<br>
 
-<table>
-  <tr>
-    <td width="52%" valign="top">
-      <b>About</b><br><br>
-      I like turning useful ideas into working software instead of leaving them as concepts.<br><br>
-      Most of my time goes into building, testing, fixing, and improving real projects while learning along the way.
-    </td>
-    <td width="48%" valign="top">
-      <b>Current focus</b><br><br>
-      • Vera and its web dashboard<br>
-      • Security and anti-phishing systems<br>
-      • Translation routes and automation<br>
-      • Cleaner UX and better reliability
-    </td>
-  </tr>
-</table>
+## About
+
+I like turning useful ideas into working software instead of leaving them as concepts. Most of my time goes into building, testing, fixing, and improving real projects while learning along the way.
+
+### Current focus
+
+`Vera` &nbsp; `Security` &nbsp; `Anti-Phishing` &nbsp; `Automation` &nbsp; `Dashboard UX` &nbsp; `Translation`
+
+<br>
 
 ## Featured project
 
-<table>
-  <tr>
-    <td>
-      <h3>Vera</h3>
-      An all-in-one Discord bot focused on moderation, protection, utilities, automation, and a web dashboard.<br><br>
-      <code>Discord</code> <code>Moderation</code> <code>Security</code> <code>Automation</code> <code>Dashboard</code><br><br>
-      <a href="https://verabot.xyz"><b>Open Vera →</b></a>
-    </td>
-  </tr>
-</table>
+### Vera
+
+An all-in-one Discord bot focused on moderation, protection, utilities, automation, and a web dashboard.
+
+`Discord` &nbsp; `Moderation` &nbsp; `Security` &nbsp; `Automation` &nbsp; `Dashboard`
+
+**[Open Vera →](https://verabot.xyz)**
+
+<br>
 
 ## Toolbox
 
@@ -51,21 +44,35 @@
   <img src="https://skillicons.dev/icons?i=js,nodejs,nextjs,postgres,docker,git,github,linux,vscode&perline=9" alt="Tools and technologies" />
 </p>
 
+<br>
+
 ## GitHub activity
 
 <p align="center">
-  <img src="./assets/stats.svg" alt="Shadow's GitHub activity" width="360" />
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="./assets/stats-dark.svg" />
+    <source media="(prefers-color-scheme: light)" srcset="./assets/stats-light.svg" />
+    <img src="./assets/stats-dark.svg" alt="Shadow's GitHub activity" width="360" />
+  </picture>
 </p>
+
+<br>
 
 <details>
   <summary><b>Other public work</b></summary>
-  <br />
+  <br>
   <p align="center">
     <a href="https://github.com/ShadowUR0/shadow-ai-sw4-candidate-solution">
-      <img src="./assets/public-work.svg" alt="Public repository" width="430" />
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="./assets/public-work-dark.svg" />
+        <source media="(prefers-color-scheme: light)" srcset="./assets/public-work-light.svg" />
+        <img src="./assets/public-work-dark.svg" alt="Public repository" width="430" />
+      </picture>
     </a>
   </p>
 </details>
+
+<br>
 
 ---
 
