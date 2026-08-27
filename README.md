@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="https://i.ibb.co/Y4VjPzzV/646196246564004446-1.jpg" alt="Profile banner" width="100%" />
+</p>
+
 <h1 align="center">Shadow</h1>
 
 <p align="center">
@@ -36,15 +40,9 @@
 
 <p align="center">
   <a href="https://github.com/ShadowUR0/shadow-ai-sw4-candidate-solution">
-    <img src="./assets/public-work.svg" alt="AI-generated SW4 candidate solution repository" width="460" />
+    <img src="./assets/public-work.svg" alt="Public repository" width="460" />
   </a>
 </p>
-
-<details>
-  <summary><b>About this repository</b></summary>
-  <br />
-  It is a public, reproducible release of an <b>unverified AI-generated candidate solution</b> to the Steiner–Wiener 4-index inverse problem, published so independent reviewers can reproduce, audit, confirm, correct, or refute it.
-</details>
 
 ---
 
