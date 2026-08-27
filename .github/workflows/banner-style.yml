@@ -1,0 +1,68 @@
+name: Style profile banner
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/banner-style.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Download banner source
+        run: |
+          curl -L --fail --retry 3 \
+            "https://i.ibb.co/Y4VjPzzV/646196246564004446-1.jpg" \
+            -o /tmp/banner-source.jpg
+
+      - name: Install Pillow
+        run: python -m pip install --disable-pip-version-check pillow
+
+      - name: Apply continuous-corner mask
+        shell: python
+        run: |
+          from PIL import Image
+          from pathlib import Path
+
+          src = Image.open('/tmp/banner-source.jpg').convert('RGBA')
+          w, h = src.size
+
+          # Apple-like continuous corners: a superellipse rather than a circular quarter arc.
+          # 12% of the banner height renders close to a 24px corner on GitHub at ~200px tall.
+          r = max(16, round(h * 0.12))
+          exponent = 4.5
+
+          mask = Image.new('L', (w, h), 255)
+          px = mask.load()
+
+          for y in range(r):
+              ny = (r - y) / r
+              for x in range(r):
+                  nx = (r - x) / r
+                  if (nx ** exponent + ny ** exponent) > 1:
+                      px[x, y] = 0
+                      px[w - 1 - x, y] = 0
+                      px[x, h - 1 - y] = 0
+                      px[w - 1 - x, h - 1 - y] = 0
+
+          src.putalpha(mask)
+          Path('assets').mkdir(exist_ok=True)
+          src.save('assets/banner-apple.png', optimize=True)
+
+      - name: Commit styled banner
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add assets/banner-apple.png
+          git diff --cached --quiet && exit 0
+          git commit -m "style: update rounded profile banner"
+          git push
