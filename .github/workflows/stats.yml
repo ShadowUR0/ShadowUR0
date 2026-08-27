@@ -24,7 +24,7 @@ jobs:
         uses: stats-organization/github-readme-stats-action@v2
         with:
           card: stats
-          options: username=${{ github.repository_owner }}&show_icons=true&hide_rank=true&hide=stars,contribs&hide_border=true&bg_color=00000000&title_color=A78BFA&icon_color=A78BFA&text_color=C9D1D9&ring_color=A78BFA
+          options: username=${{ github.repository_owner }}&show_icons=true&hide_title=true&hide_rank=true&hide=stars,contribs&card_width=360&hide_border=true&bg_color=00000000&title_color=A78BFA&icon_color=A78BFA&text_color=C9D1D9&ring_color=A78BFA
           path: assets/stats.svg
           token: ${{ secrets.GITHUB_TOKEN }}
           fail_on_error: true
