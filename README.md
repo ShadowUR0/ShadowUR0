@@ -33,7 +33,7 @@
 ### GitHub activity
 
 <p align="center">
-  <img width="49%" src="https://github-readme-stats.vercel.app/api?username=ShadowUR0&show_icons=true&hide_border=true&theme=transparent&title_color=A78BFA&icon_color=A78BFA&text_color=C9D1D9&ring_color=A78BFA" alt="Shadow's GitHub stats" />
+  <img width="49%" src="./assets/stats.svg" alt="Shadow's GitHub stats" />
   <img width="49%" src="https://streak-stats.demolab.com?user=ShadowUR0&hide_border=true&background=00000000&ring=A78BFA&fire=C084FC&currStreakLabel=A78BFA&sideLabels=C9D1D9&dates=8B949E&currStreakNum=C9D1D9&sideNums=C9D1D9" alt="Shadow's GitHub streak" />
 </p>
 
@@ -44,7 +44,7 @@
 ### Public work
 
 <a href="https://github.com/ShadowUR0/shadow-ai-sw4-candidate-solution">
-  <img align="center" src="https://github-readme-stats.vercel.app/api/pin/?username=ShadowUR0&repo=shadow-ai-sw4-candidate-solution&hide_border=true&theme=transparent&title_color=A78BFA&icon_color=A78BFA&text_color=C9D1D9" alt="AI-generated SW4 candidate solution repository" />
+  <img src="./assets/public-work.svg" alt="AI-generated SW4 candidate solution repository" />
 </a>
 
 <details>
