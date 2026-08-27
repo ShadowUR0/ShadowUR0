@@ -20,21 +20,39 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Generate stats card
+      - name: Generate dark stats card
         uses: stats-organization/github-readme-stats-action@v2
         with:
           card: stats
-          options: username=${{ github.repository_owner }}&show_icons=true&hide_title=true&hide_rank=true&hide=stars,contribs&card_width=360&hide_border=true&bg_color=00000000&title_color=A78BFA&icon_color=A78BFA&text_color=C9D1D9&ring_color=A78BFA
-          path: assets/stats.svg
+          options: username=${{ github.repository_owner }}&show_icons=true&hide_title=true&hide_rank=true&hide=stars,contribs&card_width=360&hide_border=false&border_radius=22&border_color=30363D&bg_color=0D1117&icon_color=A78BFA&text_color=C9D1D9
+          path: assets/stats-dark.svg
           token: ${{ secrets.GITHUB_TOKEN }}
           fail_on_error: true
 
-      - name: Generate public work card
+      - name: Generate light stats card
+        uses: stats-organization/github-readme-stats-action@v2
+        with:
+          card: stats
+          options: username=${{ github.repository_owner }}&show_icons=true&hide_title=true&hide_rank=true&hide=stars,contribs&card_width=360&hide_border=false&border_radius=22&border_color=D0D7DE&bg_color=FFFFFF&icon_color=7C3AED&text_color=24292F
+          path: assets/stats-light.svg
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fail_on_error: true
+
+      - name: Generate dark public-work card
         uses: stats-organization/github-readme-stats-action@v2
         with:
           card: pin
-          options: username=${{ github.repository_owner }}&repo=shadow-ai-sw4-candidate-solution&hide_border=true&bg_color=00000000&title_color=A78BFA&icon_color=A78BFA&text_color=C9D1D9
-          path: assets/public-work.svg
+          options: username=${{ github.repository_owner }}&repo=shadow-ai-sw4-candidate-solution&hide_border=false&border_radius=22&border_color=30363D&bg_color=0D1117&title_color=A78BFA&icon_color=A78BFA&text_color=C9D1D9
+          path: assets/public-work-dark.svg
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fail_on_error: true
+
+      - name: Generate light public-work card
+        uses: stats-organization/github-readme-stats-action@v2
+        with:
+          card: pin
+          options: username=${{ github.repository_owner }}&repo=shadow-ai-sw4-candidate-solution&hide_border=false&border_radius=22&border_color=D0D7DE&bg_color=FFFFFF&title_color=7C3AED&icon_color=7C3AED&text_color=24292F
+          path: assets/public-work-light.svg
           token: ${{ secrets.GITHUB_TOKEN }}
           fail_on_error: true
 
@@ -42,7 +60,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add assets/stats.svg assets/public-work.svg
+          git add assets/stats-dark.svg assets/stats-light.svg assets/public-work-dark.svg assets/public-work-light.svg
           git diff --cached --quiet && exit 0
-          git commit -m "chore: update profile cards"
+          git commit -m "chore: update rounded profile cards"
           git push
