@@ -9,32 +9,24 @@
 </p>
 
 <p align="center">
-  <a href="https://verabot.xyz"><b>Vera ↗</b></a>
+  <a href="https://verabot.xyz"><b>Vera</b></a>
   &nbsp;&nbsp;·&nbsp;&nbsp;
-  <a href="https://github.com/ShadowUR0?tab=repositories"><b>Repositories ↗</b></a>
+  <a href="https://github.com/ShadowUR0?tab=repositories"><b>Repositories</b></a>
 </p>
 
 <br>
 
-## About
-
-I like turning useful ideas into working software instead of leaving them as concepts. Most of my time goes into building, testing, fixing, and improving real projects while learning along the way.
-
-### Current focus
-
-`Vera` &nbsp; `Security` &nbsp; `Anti-Phishing` &nbsp; `Automation` &nbsp; `Dashboard UX` &nbsp; `Translation`
-
-<br>
-
-## Featured project
+## Currently building
 
 ### Vera
 
 An all-in-one Discord bot focused on moderation, protection, utilities, automation, and a web dashboard.
 
-`Discord` &nbsp; `Moderation` &nbsp; `Security` &nbsp; `Automation` &nbsp; `Dashboard`
+Currently working on security and anti-phishing systems, translation routes, dashboard UX, and reliability.
 
-**[Open Vera →](https://verabot.xyz)**
+`Discord` &nbsp; `Security` &nbsp; `Automation` &nbsp; `Dashboard` &nbsp; `Translation`
+
+**[verabot.xyz](https://verabot.xyz)**
 
 <br>
 
@@ -52,7 +44,7 @@ An all-in-one Discord bot focused on moderation, protection, utilities, automati
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="./assets/stats-dark.svg" />
     <source media="(prefers-color-scheme: light)" srcset="./assets/stats-light.svg" />
-    <img src="./assets/stats-dark.svg" alt="Shadow's GitHub activity" width="360" />
+    <img src="./assets/stats-dark.svg" alt="Shadow's GitHub activity" width="460" />
   </picture>
 </p>
 
@@ -66,7 +58,7 @@ An all-in-one Discord bot focused on moderation, protection, utilities, automati
       <picture>
         <source media="(prefers-color-scheme: dark)" srcset="./assets/public-work-dark.svg" />
         <source media="(prefers-color-scheme: light)" srcset="./assets/public-work-light.svg" />
-        <img src="./assets/public-work-dark.svg" alt="Public repository" width="430" />
+        <img src="./assets/public-work-dark.svg" alt="Public repository" width="460" />
       </picture>
     </a>
   </p>
