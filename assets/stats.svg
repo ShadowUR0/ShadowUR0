@@ -1,15 +1,15 @@
 
       <svg
-        width="304"
-        height="145"
-        viewBox="0 0 304 145"
+        width="360"
+        height="115"
+        viewBox="0 0 360 115"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
         role="img"
         aria-labelledby="descId"
       >
         <title id="titleId">Shadow&#39;s GitHub Stats, Rank: C</title>
-        <desc id="descId">Total Commits  (last year) : 30, Total PRs: 2, Total Issues: 2</desc>
+        <desc id="descId">Total Commits  (last year) : 31, Total PRs: 2, Total Issues: 2</desc>
         <style>
           .header {
             font: 600 18px 'Segoe UI', Ubuntu, Sans-Serif;
@@ -73,7 +73,7 @@
         stroke-dashoffset: 251.32741228718345;
       }
       to {
-        stroke-dashoffset: 245.13633408282175;
+        stroke-dashoffset: 245.02961341326477;
       }
     }
   
@@ -110,30 +110,16 @@
           rx="4.5"
           height="99%"
           stroke="#e4e2e2"
-          width="303"
+          width="359"
           fill="#00000000"
           stroke-opacity="0"
         />
 
         
-      <g
-        data-testid="card-title"
-        transform="translate(25, 35)"
-      >
-        <g transform="translate(0, 0)">
-      <text
-        x="0"
-        y="0"
-        class="header"
-        data-testid="header"
-      >Shadow&#39;s GitHub Stats</text>
-    </g>
-      </g>
-    
 
         <g
           data-testid="main-card-body"
-          transform="translate(0, 55)"
+          transform="translate(0, 25)"
         >
           
     
@@ -151,7 +137,7 @@
         x="224.01"
         y="12.5"
         data-testid="commits"
-      >30</text>
+      >31</text>
     </g>
   </g><g transform="translate(0, 25)">
     <g class="stagger" style="animation-delay: 600ms" transform="translate(25, 0)">
