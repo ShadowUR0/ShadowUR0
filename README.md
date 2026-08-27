@@ -1,7 +1,3 @@
-<p align="center">
-  <img src="./assets/banner.webp" alt="Shadow profile banner" width="100%" />
-</p>
-
 <h1 align="center">Shadow</h1>
 
 <p align="center">
