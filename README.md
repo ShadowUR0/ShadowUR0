@@ -1,4 +1,6 @@
-<img align="right" src="https://avatars.githubusercontent.com/u/153516052?v=4" width="210" alt="Shadow" />
+<p align="center">
+  <img src="./assets/banner-apple.png" alt="Profile banner" width="100%" />
+</p>
 
 <p align="center">
   <img src="./assets/intro.svg" width="620" alt="Hello hello — I'm Shadow, I build useful digital things" />
@@ -22,5 +24,3 @@ Building small ideas into polished, practical software</pre>
     <img src="https://img.shields.io/badge/github-ShadowUR0-555?style=flat&logo=github" alt="GitHub ShadowUR0" />
   </a>
 </p>
-
-<br clear="right">
