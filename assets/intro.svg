@@ -7,9 +7,12 @@
     </linearGradient>
   </defs>
   <style>
-    text { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; fill: url(#accent); }
-    .hello { font-size: 23px; font-weight: 600; }
-    .line { font-size: 20px; }
+    text {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Mi Sans", Roboto, "Segoe UI", Arial, sans-serif;
+      fill: url(#accent);
+    }
+    .hello { font-size: 23px; font-weight: 650; }
+    .line { font-size: 20px; font-weight: 450; }
   </style>
   <text x="360" y="36" text-anchor="middle" class="hello">Hey, I'm Shadow</text>
   <text x="360" y="70" text-anchor="middle" class="line">I turn ideas into bots, tools, and real products.</text>
