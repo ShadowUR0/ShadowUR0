@@ -1,73 +1,26 @@
-<p align="center">
-  <img src="./assets/banner-apple.png" alt="Profile banner" width="94%" />
-</p>
-
-<h1 align="center">Shadow</h1>
+<img align="right" src="https://avatars.githubusercontent.com/u/153516052?v=4" width="210" alt="Shadow" />
 
 <p align="center">
-  Building useful software, experimenting with ideas, and learning by shipping real projects.
-</p>
-
-<p align="center">
-  <a href="https://verabot.xyz"><b>Vera</b></a>
-  &nbsp;&nbsp;·&nbsp;&nbsp;
-  <a href="https://github.com/ShadowUR0?tab=repositories"><b>Repositories</b></a>
+  <img src="./assets/intro.svg" width="620" alt="Hello hello — I'm Shadow, I build useful digital things" />
 </p>
 
 <br>
 
-## Currently building
-
-### Vera
-
-An all-in-one Discord bot focused on moderation, protection, utilities, automation, and a web dashboard.
-
-Currently working on security and anti-phishing systems, translation routes, dashboard UX, and reliability.
-
-`Discord` &nbsp; `Security` &nbsp; `Automation` &nbsp; `Dashboard` &nbsp; `Translation`
-
-**[verabot.xyz](https://verabot.xyz)**
+<pre align="center">Discord bots / Web apps / Automation
+JavaScript / Node.js / Next.js / PostgreSQL
+Security / Automation / Product engineering
+Building small ideas into polished, practical software</pre>
 
 <br>
-
-## Toolbox
 
 <p align="center">
-  <img src="https://skillicons.dev/icons?i=js,nodejs,nextjs,postgres,docker,git,github,linux,vscode&perline=9" alt="Tools and technologies" />
+  <img src="https://skillicons.dev/icons?i=js,nodejs,nextjs,postgres,docker,git,github&perline=7" alt="Tools and technologies" />
 </p>
-
-<br>
-
-## GitHub activity
 
 <p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="./assets/stats-dark.svg" />
-    <source media="(prefers-color-scheme: light)" srcset="./assets/stats-light.svg" />
-    <img src="./assets/stats-dark.svg" alt="Shadow's GitHub activity" width="460" />
-  </picture>
+  <a href="https://github.com/ShadowUR0">
+    <img src="https://img.shields.io/badge/github-ShadowUR0-555?style=flat&logo=github" alt="GitHub ShadowUR0" />
+  </a>
 </p>
 
-<br>
-
-<details>
-  <summary><b>Other public work</b></summary>
-  <br>
-  <p align="center">
-    <a href="https://github.com/ShadowUR0/shadow-ai-sw4-candidate-solution">
-      <picture>
-        <source media="(prefers-color-scheme: dark)" srcset="./assets/public-work-dark.svg" />
-        <source media="(prefers-color-scheme: light)" srcset="./assets/public-work-light.svg" />
-        <img src="./assets/public-work-dark.svg" alt="Public repository" width="460" />
-      </picture>
-    </a>
-  </p>
-</details>
-
-<br>
-
----
-
-<p align="center">
-  <sub>Keep building. Keep learning.</sub>
-</p>
+<br clear="right">
