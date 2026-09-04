@@ -3,15 +3,15 @@
 </p>
 
 <p align="center">
-  <img src="./assets/intro.svg" width="620" alt="Hello hello — I'm Shadow, I build useful digital things" />
+  <img src="./assets/intro.svg" width="620" alt="Hey, I'm Shadow — I turn ideas into bots, tools, and real products" />
 </p>
 
 <br>
 
-<pre align="center">Discord bots / Web apps / Automation
+<pre align="center">Discord systems / Web products / Automation
 JavaScript / Node.js / Next.js / PostgreSQL
-Security / Automation / Product engineering
-Building small ideas into polished, practical software</pre>
+Security-minded builds / Practical UX / Reliable backends
+Mostly building Vera — and whatever comes next</pre>
 
 <br>
 
