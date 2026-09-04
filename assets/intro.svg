@@ -1,19 +1,88 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="720" height="105" viewBox="0 0 720 105" role="img" aria-label="Hey, I'm Shadow — I turn ideas into bots, tools, and real products">
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="105" viewBox="0 0 720 105" role="img" aria-label="Hey, I'm Shadow — I turn ideas into bots, tools, and real products" xml:space="preserve">
   <defs>
-    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#f0a6c8" />
-      <stop offset="52%" stop-color="#d7a8ff" />
-      <stop offset="100%" stop-color="#aeb8ff" />
+    <linearGradient id="bannerAccent" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#953f60" />
+      <stop offset="52%" stop-color="#a56799" />
+      <stop offset="100%" stop-color="#d1b1e3" />
     </linearGradient>
   </defs>
+
   <style>
     text {
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Mi Sans", Roboto, "Segoe UI", Arial, sans-serif;
-      fill: url(#accent);
+      fill: url(#bannerAccent);
     }
     .hello { font-size: 23px; font-weight: 650; }
     .line { font-size: 20px; font-weight: 450; }
   </style>
-  <text x="360" y="36" text-anchor="middle" class="hello">Hey, I'm Shadow</text>
-  <text x="360" y="70" text-anchor="middle" class="line">I turn ideas into bots, tools, and real products.</text>
+
+  <text x="360" y="36" text-anchor="middle" class="hello">
+    <tspan opacity="0">H<animate attributeName="opacity" from="0" to="1" dur="0.01s" begin="0.150s" fill="freeze" /></tspan>
+    <tspan opacity="0">e<animate attributeName="opacity" from="0" to="1" dur="0.01s" begin="0.210s" fill="freeze" /></tspan>
+    <tspan opacity="0">y<animate attributeName="opacity" from="0" to="1" dur="0.01s" begin="0.270s" fill="freeze" /></tspan>
+    <tspan opacity="0">,<animate attributeName="opacity" from="0" to="1" dur="0.01s" begin="0.330s" fill="freeze" /></tspan>
+    <tspan opacity="0">&#160;<animate attributeName="opacity" from="0" to="1" dur="0.01s" begin="0.390s" fill="freeze" /></tspan>
+    <tspan opacity="0">I<animate attributeName="opacity" from="0" to="1" dur="0.01s" begin="0.450s" fill="freeze" /></tspan>
+    <tspan opacity="0">&#x27;<animate attributeName="opacity" from="0" to="1" dur="0.01s" begin="0.510s" fill="freeze" /></tspan>
+    <tspan opacity="0">m<animate attributeName="opacity" from="0" to="1" dur="0.01s" begin="0.570s" fill="freeze" /></tspan>
+    <tspan opacity="0">&#160;<animate attributeName="opacity" from="0" to="1" dur="0.01s" begin="0.630s" fill="freeze" /></tspan>
+    <tspan opacity="0">S<animate attributeName="opacity" from="0" to="1" dur="0.01s" begin="0.690s" fill="freeze" /></tspan>
+    <tspan opacity="0">h<animate attributeName="opacity" from="0" to="1" dur="0.01s" begin="0.750s" fill="freeze" /></tspan>
+    <tspan opacity="0">a<animate attributeName="opacity" from="0" to="1" dur="0.01s" begin="0.810s" fill="freeze" /></tspan>
+    <tspan opacity="0">d<animate attributeName="opacity" from="0" to="1" dur="0.01s" begin="0.870s" fill="freeze" /></tspan>
+    <tspan opacity="0">o<animate attributeName="opacity" from="0" to="1" dur="0.01s" begin="0.930s" fill="freeze" /></tspan>
+    <tspan opacity="0">w<animate attributeName="opacity" from="0" to="1" dur="0.01s" begin="0.990s" fill="freeze" /></tspan>
+  </text>
+
+  <text x="360" y="70" text-anchor="middle" class="line">
+    <tspan opacity="0">I<animate attributeName="opacity" from="0" to="1" dur="0.01s" begin="1.250s" fill="freeze" /></tspan>
+    <tspan opacity="0">&#160;<animate attributeName="opacity" from="0" to="1" dur="0.01s" begin="1.285s" fill="freeze" /></tspan>
+    <tspan opacity="0">t<animate attributeName="opacity" from="0" to="1" dur="0.01s" begin="1.320s" fill="freeze" /></tspan>
+    <tspan opacity="0">u<animate attributeName="opacity" from="0" to="1" dur="0.01s" begin="1.355s" fill="freeze" /></tspan>
+    <tspan opacity="0">r<animate attributeName="opacity" from="0" to="1" dur="0.01s" begin="1.390s" fill="freeze" /></tspan>
+    <tspan opacity="0">n<animate attributeName="opacity" from="0" to="1" dur="0.01s" begin="1.425s" fill="freeze" /></tspan>
+    <tspan opacity="0">&#160;<animate attributeName="opacity" from="0" to="1" dur="0.01s" begin="1.460s" fill="freeze" /></tspan>
+    <tspan opacity="0">i<animate attributeName="opacity" from="0" to="1" dur="0.01s" begin="1.495s" fill="freeze" /></tspan>
+    <tspan opacity="0">d<animate attributeName="opacity" from="0" to="1" dur="0.01s" begin="1.530s" fill="freeze" /></tspan>
+    <tspan opacity="0">e<animate attributeName="opacity" from="0" to="1" dur="0.01s" begin="1.565s" fill="freeze" /></tspan>
+    <tspan opacity="0">a<animate attributeName="opacity" from="0" to="1" dur="0.01s" begin="1.600s" fill="freeze" /></tspan>
+    <tspan opacity="0">s<animate attributeName="opacity" from="0" to="1" dur="0.01s" begin="1.635s" fill="freeze" /></tspan>
+    <tspan opacity="0">&#160;<animate attributeName="opacity" from="0" to="1" dur="0.01s" begin="1.670s" fill="freeze" /></tspan>
+    <tspan opacity="0">i<animate attributeName="opacity" from="0" to="1" dur="0.01s" begin="1.705s" fill="freeze" /></tspan>
+    <tspan opacity="0">n<animate attributeName="opacity" from="0" to="1" dur="0.01s" begin="1.740s" fill="freeze" /></tspan>
+    <tspan opacity="0">t<animate attributeName="opacity" from="0" to="1" dur="0.01s" begin="1.775s" fill="freeze" /></tspan>
+    <tspan opacity="0">o<animate attributeName="opacity" from="0" to="1" dur="0.01s" begin="1.810s" fill="freeze" /></tspan>
+    <tspan opacity="0">&#160;<animate attributeName="opacity" from="0" to="1" dur="0.01s" begin="1.845s" fill="freeze" /></tspan>
+    <tspan opacity="0">b<animate attributeName="opacity" from="0" to="1" dur="0.01s" begin="1.880s" fill="freeze" /></tspan>
+    <tspan opacity="0">o<animate attributeName="opacity" from="0" to="1" dur="0.01s" begin="1.915s" fill="freeze" /></tspan>
+    <tspan opacity="0">t<animate attributeName="opacity" from="0" to="1" dur="0.01s" begin="1.950s" fill="freeze" /></tspan>
+    <tspan opacity="0">s<animate attributeName="opacity" from="0" to="1" dur="0.01s" begin="1.985s" fill="freeze" /></tspan>
+    <tspan opacity="0">,<animate attributeName="opacity" from="0" to="1" dur="0.01s" begin="2.020s" fill="freeze" /></tspan>
+    <tspan opacity="0">&#160;<animate attributeName="opacity" from="0" to="1" dur="0.01s" begin="2.055s" fill="freeze" /></tspan>
+    <tspan opacity="0">t<animate attributeName="opacity" from="0" to="1" dur="0.01s" begin="2.090s" fill="freeze" /></tspan>
+    <tspan opacity="0">o<animate attributeName="opacity" from="0" to="1" dur="0.01s" begin="2.125s" fill="freeze" /></tspan>
+    <tspan opacity="0">o<animate attributeName="opacity" from="0" to="1" dur="0.01s" begin="2.160s" fill="freeze" /></tspan>
+    <tspan opacity="0">l<animate attributeName="opacity" from="0" to="1" dur="0.01s" begin="2.195s" fill="freeze" /></tspan>
+    <tspan opacity="0">s<animate attributeName="opacity" from="0" to="1" dur="0.01s" begin="2.230s" fill="freeze" /></tspan>
+    <tspan opacity="0">,<animate attributeName="opacity" from="0" to="1" dur="0.01s" begin="2.265s" fill="freeze" /></tspan>
+    <tspan opacity="0">&#160;<animate attributeName="opacity" from="0" to="1" dur="0.01s" begin="2.300s" fill="freeze" /></tspan>
+    <tspan opacity="0">a<animate attributeName="opacity" from="0" to="1" dur="0.01s" begin="2.335s" fill="freeze" /></tspan>
+    <tspan opacity="0">n<animate attributeName="opacity" from="0" to="1" dur="0.01s" begin="2.370s" fill="freeze" /></tspan>
+    <tspan opacity="0">d<animate attributeName="opacity" from="0" to="1" dur="0.01s" begin="2.405s" fill="freeze" /></tspan>
+    <tspan opacity="0">&#160;<animate attributeName="opacity" from="0" to="1" dur="0.01s" begin="2.440s" fill="freeze" /></tspan>
+    <tspan opacity="0">r<animate attributeName="opacity" from="0" to="1" dur="0.01s" begin="2.475s" fill="freeze" /></tspan>
+    <tspan opacity="0">e<animate attributeName="opacity" from="0" to="1" dur="0.01s" begin="2.510s" fill="freeze" /></tspan>
+    <tspan opacity="0">a<animate attributeName="opacity" from="0" to="1" dur="0.01s" begin="2.545s" fill="freeze" /></tspan>
+    <tspan opacity="0">l<animate attributeName="opacity" from="0" to="1" dur="0.01s" begin="2.580s" fill="freeze" /></tspan>
+    <tspan opacity="0">&#160;<animate attributeName="opacity" from="0" to="1" dur="0.01s" begin="2.615s" fill="freeze" /></tspan>
+    <tspan opacity="0">p<animate attributeName="opacity" from="0" to="1" dur="0.01s" begin="2.650s" fill="freeze" /></tspan>
+    <tspan opacity="0">r<animate attributeName="opacity" from="0" to="1" dur="0.01s" begin="2.685s" fill="freeze" /></tspan>
+    <tspan opacity="0">o<animate attributeName="opacity" from="0" to="1" dur="0.01s" begin="2.720s" fill="freeze" /></tspan>
+    <tspan opacity="0">d<animate attributeName="opacity" from="0" to="1" dur="0.01s" begin="2.755s" fill="freeze" /></tspan>
+    <tspan opacity="0">u<animate attributeName="opacity" from="0" to="1" dur="0.01s" begin="2.790s" fill="freeze" /></tspan>
+    <tspan opacity="0">c<animate attributeName="opacity" from="0" to="1" dur="0.01s" begin="2.825s" fill="freeze" /></tspan>
+    <tspan opacity="0">t<animate attributeName="opacity" from="0" to="1" dur="0.01s" begin="2.860s" fill="freeze" /></tspan>
+    <tspan opacity="0">s<animate attributeName="opacity" from="0" to="1" dur="0.01s" begin="2.895s" fill="freeze" /></tspan>
+    <tspan opacity="0">.<animate attributeName="opacity" from="0" to="1" dur="0.01s" begin="2.930s" fill="freeze" /></tspan>
+  </text>
 </svg>
