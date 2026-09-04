@@ -1,9 +1,16 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="720" height="105" viewBox="0 0 720 105" role="img" aria-label="Hello hello — I'm Shadow, I build useful digital things">
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="105" viewBox="0 0 720 105" role="img" aria-label="Hey, I'm Shadow — I turn ideas into bots, tools, and real products">
+  <defs>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#f0a6c8" />
+      <stop offset="52%" stop-color="#d7a8ff" />
+      <stop offset="100%" stop-color="#aeb8ff" />
+    </linearGradient>
+  </defs>
   <style>
-    text { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; fill: #b7ad3c; }
-    .hello { font-size: 23px; }
-    .line { font-size: 22px; }
+    text { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; fill: url(#accent); }
+    .hello { font-size: 23px; font-weight: 600; }
+    .line { font-size: 20px; }
   </style>
-  <text x="360" y="36" text-anchor="middle" class="hello">Hello hello</text>
-  <text x="360" y="70" text-anchor="middle" class="line">I'm Shadow, I build useful digital things</text>
+  <text x="360" y="36" text-anchor="middle" class="hello">Hey, I'm Shadow</text>
+  <text x="360" y="70" text-anchor="middle" class="line">I turn ideas into bots, tools, and real products.</text>
 </svg>
