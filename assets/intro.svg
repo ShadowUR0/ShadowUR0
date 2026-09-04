@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="105" viewBox="0 0 720 105" role="img" aria-label="Hello hello — I'm Shadow, I build useful digital things">
+  <style>
+    text { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; fill: #b7ad3c; }
+    .hello { font-size: 23px; }
+    .line { font-size: 22px; }
+  </style>
+  <text x="360" y="36" text-anchor="middle" class="hello">Hello hello</text>
+  <text x="360" y="70" text-anchor="middle" class="line">I'm Shadow, I build useful digital things</text>
+</svg>
