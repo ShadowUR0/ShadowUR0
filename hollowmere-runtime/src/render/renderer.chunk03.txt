@@ -1,0 +1,294 @@
+                    emissiveIntensity: 1.8,
+                    toneMapped: false,
+                });
+                const circlet = new THREE.Mesh(new THREE.TorusGeometry(0.25, 0.035, 6, 18), makeMaterial());
+                circlet.name = 'barrow-crown-circlet';
+                circlet.rotation.x = Math.PI / 2;
+                circlet.position.y = 1.68;
+                g.add(circlet);
+                for (let i = 0; i < 5; i++) {
+                    const a = (i / 5) * Math.PI * 2;
+                    const spike = new THREE.Mesh(new THREE.ConeGeometry(0.045, 0.2 + (i % 2) * 0.05, 5), makeMaterial());
+                    spike.name = `barrow-crown-spike-${i}`;
+                    spike.position.set(Math.cos(a) * 0.21, 1.79 + (i % 2) * 0.025, Math.sin(a) * 0.21);
+                    g.add(spike);
+                }
+                const light = new THREE.PointLight(0x8f79ff, 8, 4.5);
+                light.name = 'barrow-crown-light';
+                light.position.set(0, 1.78, 0);
+                g.add(light);
+                this.playerRoot.add(g);
+                this.relicFx.group = g;
+            }
+            else if (id === 'drowned-idol') {
+                const g = new THREE.Group();
+                const mote = new THREE.Mesh(new THREE.SphereGeometry(0.11, 8, 8), new THREE.MeshBasicMaterial({ color: 0xe6ffd8, toneMapped: false }));
+                const light = new THREE.PointLight(0xa8d0a0, 6, 4);
+                g.add(mote, light);
+                this.playerRoot.add(g);
+                this.relicFx.group = g;
+            }
+        }
+        if (this.relicFx.id === 'mourning-edge' && this.relicFx.weapon) {
+            const m = this.relicFx.weapon.mesh.material;
+            m.emissiveIntensity = this.reducedMotion ? 2.2 : 1.7 + 0.8 * Math.sin(t * 5);
+        }
+        else if (this.relicFx.id === 'barrow-heart' && this.relicFx.group) {
+            const light = this.relicFx.group.children[1];
+            light.intensity = this.reducedMotion ? 9 : 8 + 2.5 * Math.sin(t * 3.2);
+        }
+        else if (this.relicFx.id === 'barrow-crown' && this.relicFx.group) {
+            this.relicFx.group.rotation.y = this.reducedMotion ? 0 : Math.sin(t * 0.8) * 0.12;
+            const light = this.relicFx.group.getObjectByName('barrow-crown-light');
+            light.intensity = this.reducedMotion ? 8 : 7 + 2 * Math.sin(t * 2.6);
+        }
+        else if (this.relicFx.id === 'drowned-idol' && this.relicFx.group) {
+            const a = this.reducedMotion ? 0 : t * 1.7;
+            const mote = this.relicFx.group.children[0];
+            const light = this.relicFx.group.children[1];
+            mote.position.set(Math.sin(a) * 0.6, 1.55 + Math.sin(t * 2.3) * 0.08, Math.cos(a) * 0.6);
+            light.position.copy(mote.position);
+        }
+    }
+    onEvents(events) {
+        for (const event of events) {
+            if (event.t === 'parryStart')
+                this.parryPoseT = Math.max(this.parryPoseT, 0.48);
+            if (event.t === 'parry') {
+                this.parryPoseT = Math.max(this.parryPoseT, 0.5);
+                this.parrySuccessT = Math.max(this.parrySuccessT, 0.5);
+            }
+        }
+    }
+    debugPlayerMotion() {
+        return {
+            clip: this.playerAvatar?.currentClipName() ?? null,
+            parrying: this.parryPoseT > 0,
+            success: this.parrySuccessT > 0,
+        };
+    }
+    debugRelicVisual() {
+        return {
+            id: this.relicFx.id,
+            group: this.relicFx.group?.name || null,
+            parts: this.relicFx.group?.children.length ?? 0,
+            weaponGlow: this.relicFx.weapon !== null,
+        };
+    }
+    beforeTick(sim) {
+        const enemies = new Map();
+        for (const e of sim.enemies)
+            enemies.set(e.id, { x: e.x, z: e.z });
+        const projs = new Map();
+        for (const p of sim.projs)
+            projs.set(p.id, { x: p.x, z: p.z });
+        this.interpPrev = { px: sim.px, pz: sim.pz, enemies, projs };
+    }
+    makeEnemyView(e) {
+        const root = new THREE.Group();
+        const avatar = new Avatar(enemyAvatarKind(e.kind), e.def.scale * (e.elite ? ELITE.scaleMul : 1));
+        root.add(avatar.root);
+        let eliteRing = null;
+        if (e.elite) {
+            eliteRing = new THREE.Mesh(new THREE.RingGeometry(e.def.radius + 0.35, e.def.radius + 0.5, 28), new THREE.MeshBasicMaterial({ color: COL.amber, transparent: true, opacity: 0.3, depthWrite: false }));
+            eliteRing.rotation.x = -Math.PI / 2;
+            eliteRing.position.y = 0.085;
+            this.scene.add(eliteRing);
+        }
+        const telegraph = new THREE.Mesh(new THREE.RingGeometry(0.2, 1, 28), new THREE.MeshBasicMaterial({ color: COL.blood, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false }));
+        telegraph.rotation.x = -Math.PI / 2;
+        telegraph.position.y = 0.09;
+        this.scene.add(telegraph);
+        const telegraphArc = new THREE.Mesh(new THREE.CircleGeometry(1, 24, -ENEMY_MELEE_HALF_ANGLE, ENEMY_MELEE_HALF_ANGLE * 2), new THREE.MeshBasicMaterial({ color: COL.blood, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false }));
+        telegraphArc.rotation.x = -Math.PI / 2;
+        telegraphArc.position.y = 0.09;
+        this.scene.add(telegraphArc);
+        const volleySpread = (BOSS.volleySpreadDeg * Math.PI) / 180;
+        const telegraphFan = new THREE.Mesh(new THREE.CircleGeometry(1, 32, -volleySpread / 2, volleySpread), new THREE.MeshBasicMaterial({
+            color: COL.blood,
+            transparent: true,
+            opacity: 0,
+            side: THREE.DoubleSide,
+            depthWrite: false,
+            blending: THREE.AdditiveBlending,
+            toneMapped: false,
+        }));
+        telegraphFan.name = 'enemy-volley-telegraph';
+        telegraphFan.rotation.x = -Math.PI / 2;
+        telegraphFan.position.y = 0.1;
+        this.scene.add(telegraphFan);
+        const rushHalf = (BOSS.rushTelegraphHalfDeg * Math.PI) / 180;
+        const telegraphRush = new THREE.Mesh(new THREE.CircleGeometry(1, 28, -rushHalf, rushHalf * 2), new THREE.MeshBasicMaterial({
+            color: COL.blood,
+            transparent: true,
+            opacity: 0,
+            side: THREE.DoubleSide,
+            depthWrite: false,
+            blending: THREE.AdditiveBlending,
+            toneMapped: false,
+        }));
+        telegraphRush.name = 'enemy-rush-telegraph';
+        telegraphRush.rotation.x = -Math.PI / 2;
+        telegraphRush.position.y = 0.105;
+        this.scene.add(telegraphRush);
+        const shadow = this.makeShadow(e.def.radius + 0.15);
+        root.add(shadow);
+        this.scene.add(root);
+        return { root, avatar, telegraph, telegraphArc, telegraphFan, telegraphRush, shadow, eliteRing, deadT: 0, prevState: 'idle' };
+    }
+    sync(sim, dtReal, timeMs, alpha = 1) {
+        const t = timeMs / 1000;
+        const SNAP = 3;
+        const prev = this.interpPrev;
+        const lerp1 = (a, b) => (Math.abs(b - a) > SNAP ? b : a + (b - a) * alpha);
+        const ppx = prev ? lerp1(prev.px, sim.px) : sim.px;
+        const ppz = prev ? lerp1(prev.pz, sim.pz) : sim.pz;
+        this.playerRoot.position.set(ppx, 0, ppz);
+        for (const view of this.remoteViews.values()) {
+            const dx = view.tx - view.root.position.x, dz = view.tz - view.root.position.z;
+            const snap = Math.hypot(dx, dz) > 8;
+            const k = snap ? 1 : Math.min(1, dtReal * 12);
+            view.root.position.x += dx * k;
+            view.root.position.z += dz * k;
+            view.avatar.setFacing(Math.atan2(view.faceX, view.faceZ));
+            const movingRemote = Math.hypot(dx, dz) > 0.025;
+            if (view.attack)
+                view.avatar.play(view.classId === 'vessel' ? 'Spellcast_Shoot' : '1H_Melee_Attack_Slice_Diagonal', { once: true, fadeSec: 0.06 });
+            else
+                view.avatar.play(movingRemote ? 'Running_A' : 'Idle', { fadeSec: 0.1 });
+            view.avatar.update(dtReal);
+        }
+        const face = Math.atan2(sim.faceX, sim.faceZ);
+        this.playerAvatar?.setFacing(face);
+        this.syncRelicVisual(sim, t);
+        const dodging = sim.dodgeT >= 0;
+        const sipping = sim.sipT >= 0;
+        this.parryPoseT = Math.max(0, this.parryPoseT - dtReal);
+        this.parrySuccessT = Math.max(0, this.parrySuccessT - dtReal);
+        const parrying = sim.parryT >= 0 || this.parryPoseT > 0;
+        const parrySuccess = this.parrySuccessT > 0;
+        const moving = !!prev && Math.hypot(sim.px - prev.px, sim.pz - prev.pz) > 1e-4;
+        if (this.playerAvatar) {
+            const av = this.playerAvatar;
+            if (sim.dead) {
+                av.play('Death_A', { once: true, clampWhenFinished: true, fadeSec: 0.15 });
+            }
+            else if (dodging) {
+                if (!this.prevDodging) {
+                    const dur = av.clipDuration('Dodge_Forward');
+                    av.play('Dodge_Forward', { once: true, fadeSec: 0.06, timeScale: dur / Math.max(0.05, PLAYER.dodgeTime) });
+                }
+            }
+            else if (parrySuccess) {
+                if (!this.prevParrySuccess) {
+                    const dur = av.clipDuration('Block_Hit');
+                    av.play('Block_Hit', { once: true, clampWhenFinished: true, fadeSec: 0.04, timeScale: dur / 0.38 });
+                }
+            }
+            else if (parrying) {
+                if (!this.prevParrying) {
+                    const dur = av.clipDuration('Block');
+                    av.play('Block', { once: true, clampWhenFinished: true, fadeSec: 0.05, timeScale: dur / 0.3 });
+                }
+            }
+            else if (sim.atk !== 'idle') {
+                if (this.prevAtk === 'idle') {
+                    const clipName = sim.cls.melee ? '1H_Melee_Attack_Slice_Diagonal' : 'Spellcast_Shoot';
+                    const total = sim.cls.windup + sim.cls.active + sim.cls.recover;
+                    const dur = av.clipDuration(clipName);
+                    av.play(clipName, { once: true, clampWhenFinished: true, fadeSec: 0.08, timeScale: dur / Math.max(0.05, total) });
+                }
+            }
+            else if (sipping) {
+                if (!this.prevSipping) {
+                    const dur = av.clipDuration('Use_Item');
+                    av.play('Use_Item', { once: true, clampWhenFinished: true, fadeSec: 0.1, timeScale: dur / Math.max(0.05, PLAYER.flaskSip) });
+                }
+            }
+            else if (moving) {
+                av.play('Running_A', { fadeSec: 0.15 });
+            }
+            else {
+                const engaged = sim.enemies.some(en => en.state !== 'idle' && en.state !== 'dead');
+                av.play(engaged && av.hasClip('Idle_Combat') ? 'Idle_Combat' : 'Idle', { fadeSec: 0.15 });
+            }
+            av.update(dtReal);
+        }
+        this.prevAtk = sim.atk;
+        this.prevDodging = dodging;
+        this.prevSipping = sipping;
+        this.prevParrying = parrying;
+        this.prevParrySuccess = parrySuccess;
+        const seen = new Set();
+        for (const e of sim.enemies) {
+            seen.add(e.id);
+            let v = this.enemyViews.get(e.id);
+            if (!v) {
+                v = this.makeEnemyView(e);
+                this.enemyViews.set(e.id, v);
+            }
+            const pe = prev?.enemies.get(e.id);
+            const ex = pe ? lerp1(pe.x, e.x) : e.x;
+            const ez = pe ? lerp1(pe.z, e.z) : e.z;
+            v.root.position.set(ex, 0, ez);
+            v.avatar.setFacing(Math.atan2(e.faceX, e.faceZ));
+            v.avatar.flash(e.hurtT > 0);
+            if (e.state === 'dead') {
+                v.avatar.play('Death_A', { once: true, clampWhenFinished: true, fadeSec: 0.15 });
+                v.avatar.update(dtReal);
+                v.deadT += dtReal;
+                const k = Math.min(1, v.deadT / 0.9);
+                v.root.scale.setScalar(1 - k * 0.85);
+                v.root.position.y = -k * 0.9;
+                v.telegraph.material.opacity = 0;
+                v.telegraphArc.material.opacity = 0;
+                v.telegraphFan.material.opacity = 0;
+                v.telegraphRush.material.opacity = 0;
+                v.shadow.visible = false;
+                if (v.eliteRing)
+                    v.eliteRing.visible = false;
+                v.root.visible = k < 1;
+                v.prevState = e.state;
+                continue;
+            }
+            if (v.eliteRing) {
+                v.eliteRing.position.set(ex, 0.085, ez);
+                v.eliteRing.material.opacity = 0.24 + 0.08 * Math.sin(t * 2.6);
+            }
+            const enteringWindup = e.state === 'windup' && v.prevState !== 'windup';
+            if (e.state === 'windup') {
+                if (enteringWindup) {
+                    const timing = enemyAttackTiming(e, sim);
+                    const total = timing.windup + timing.active + timing.recover;
+                    const clipName = enemyAttackClipName(e);
+                    const dur = v.avatar.clipDuration(clipName);
+                    v.avatar.play(clipName, { once: true, clampWhenFinished: true, fadeSec: 0.1, timeScale: dur / Math.max(0.05, total) });
+                }
+            }
+            else if (e.state === 'active' || e.state === 'recover') {
+            }
+            else if (e.state === 'chase' || e.state === 'return') {
+                v.avatar.play(e.kind === 'warden' ? 'Walking_A' : 'Running_A', { fadeSec: 0.15 });
+            }
+            else {
+                v.avatar.play('Idle', { fadeSec: 0.15 });
+            }
+            v.avatar.update(dtReal);
+            v.prevState = e.state;
+            const tm = v.telegraph.material;
+            const am = v.telegraphArc.material;
+            const fm = v.telegraphFan.material;
+            const rm = v.telegraphRush.material;
+            tm.opacity = 0;
+            am.opacity = 0;
+            fm.opacity = 0;
+            rm.opacity = 0;
+            if (e.state === 'windup') {
+                const k = Math.min(1, e.t / enemyAttackTiming(e, sim).windup);
+                const pulse = 0.5 + 0.25 * Math.sin(t * 16) + 0.35 * k;
+                if (e.attack === 'slam') {
+                    v.telegraph.position.set(ex, 0.09, ez);
+                    v.telegraph.scale.setScalar(BOSS.slamRadius);
+                    tm.opacity = pulse * 0.8;
+                }
+                else if (e.attack === 'strike' || e.attack === 'swing') {
