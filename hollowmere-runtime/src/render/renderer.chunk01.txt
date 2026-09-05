@@ -1,0 +1,328 @@
+import * as THREE from 'three';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { Rng } from '../sim/rng.js';
+import { ZONE, BOSS, ELITE, PLAYER } from '../sim/content.js';
+import { ENEMY_MELEE_HALF_ANGLE, enemyAttackTiming, enemyMeleeThreat, } from '../sim/sim.js';
+import { Vfx } from './vfx.js';
+import { Avatar, preloadAvatars } from './avatar.js';
+import { EnvKit } from './environment.js';
+const COL = {
+    fog: 0x142534,
+    waterDeep: 0x14293c,
+    stone: 0x6e7984,
+    stoneDark: 0x555f69,
+    bone: 0xb7b09b,
+    amber: 0xffb35c,
+    cyan: 0x6fe3d4,
+    huskBody: 0x5b6a5c,
+    wardenBody: 0x49546a,
+    barrowBody: 0x3e4654,
+    brass: 0x77653a,
+    blood: 0xc2453a,
+};
+function mat(color, opts = {}) {
+    return new THREE.MeshStandardMaterial({ color, roughness: 0.92, metalness: 0.04, ...opts });
+}
+function box(w, h, d, m) {
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m);
+    return mesh;
+}
+function enemyAvatarKind(kind) {
+    if (kind === 'husk')
+        return 'Skeleton_Minion';
+    if (kind === 'warden')
+        return 'Skeleton_Mage';
+    if (kind === 'wight')
+        return 'Skeleton_Rogue';
+    return 'Skeleton_Warrior';
+}
+function enemyAttackClipName(e) {
+    if (e.kind === 'husk')
+        return 'Unarmed_Melee_Attack_Punch_A';
+    if (e.kind === 'warden')
+        return 'Spellcast_Shoot';
+    if (e.kind === 'wight')
+        return 'Unarmed_Melee_Attack_Punch_A';
+    if (e.attack === 'slam')
+        return '2H_Melee_Attack_Chop';
+    if (e.attack === 'volley')
+        return 'Spellcast_Shoot';
+    return '1H_Melee_Attack_Slice_Horizontal';
+}
+export class Renderer {
+    scene = new THREE.Scene();
+    camera;
+    three;
+    vfx;
+    playerRoot = new THREE.Group();
+    playerAvatar = null;
+    playerShadow;
+    prevAtk = 'idle';
+    prevDodging = false;
+    prevSipping = false;
+    prevParrying = false;
+    prevParrySuccess = false;
+    parryPoseT = 0;
+    parrySuccessT = 0;
+    interpPrev = null;
+    relicFx = { id: null, group: null, weapon: null };
+    enemyViews = new Map();
+    remoteViews = new Map();
+    gateBars = null;
+    gateOpenT = 0;
+    zone2Gate = null;
+    zone2GateOpenT = 0;
+    fogGate = null;
+    fogGateT = 0;
+    shrineRunes = [];
+    lanternLights = [];
+    camTarget = new THREE.Vector3();
+    aimMarker = null;
+    shake = 0;
+    shakeEnabled = true;
+    zoom = 1;
+    reducedMotion;
+    vrng = new Rng(777);
+    constructor(container) {
+        this.reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        this.three = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+        this.three.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        this.three.setSize(window.innerWidth, window.innerHeight);
+        this.three.outputColorSpace = THREE.SRGBColorSpace;
+        this.three.toneMapping = THREE.ACESFilmicToneMapping;
+        this.three.toneMappingExposure = 1.18;
+        container.appendChild(this.three.domElement);
+        this.camera = new THREE.PerspectiveCamera(33, window.innerWidth / window.innerHeight, 1, 160);
+        window.addEventListener('resize', () => {
+            this.camera.aspect = window.innerWidth / window.innerHeight;
+            this.camera.updateProjectionMatrix();
+            this.three.setSize(window.innerWidth, window.innerHeight);
+        });
+        window.addEventListener('wheel', (e) => {
+            this.zoom = Math.max(0.72, Math.min(1.5, this.zoom + Math.sign(e.deltaY) * 0.08));
+        }, { passive: true });
+        this.scene.fog = new THREE.Fog(COL.fog, 30, 88);
+        this.scene.background = new THREE.Color(COL.fog);
+        const hemi = new THREE.HemisphereLight(0x41607a, 0x141a20, 1.55);
+        this.scene.add(hemi);
+        const moon = new THREE.DirectionalLight(0xaebfd8, 1.35);
+        moon.position.set(-18, 30, -8);
+        this.scene.add(moon);
+        this.buildWorld();
+        this.buildPlayer();
+        this.vfx = new Vfx(this.scene, this.reducedMotion);
+        this.aimMarker = new THREE.Mesh(new THREE.RingGeometry(0.28, 0.38, 24), new THREE.MeshBasicMaterial({ color: COL.amber, transparent: true, opacity: 0.55, depthWrite: false }));
+        this.aimMarker.rotation.x = -Math.PI / 2;
+        this.aimMarker.position.y = 0.09;
+        this.aimMarker.visible = false;
+        this.scene.add(this.aimMarker);
+    }
+    preloadAssets() {
+        return Promise.all([
+            preloadAvatars(),
+            this.vfx.preload(),
+            EnvKit.load().catch((err) => { console.error('[env] prop kit failed to load', err); return null; }),
+        ]).then(([, , kit]) => { this.buildProps(kit); });
+    }
+    makeRemoteLabel(name, tint) {
+        const canvas = document.createElement('canvas');
+        canvas.width = 256;
+        canvas.height = 64;
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = 'rgba(7, 12, 18, 0.78)';
+        ctx.beginPath();
+        ctx.roundRect(8, 8, 240, 48, 16);
+        ctx.fill();
+        ctx.strokeStyle = `#${tint.toString(16).padStart(6, '0')}`;
+        ctx.lineWidth = 3;
+        ctx.stroke();
+        ctx.fillStyle = '#f4f1e8';
+        ctx.font = '600 24px system-ui, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(name, 128, 32, 220);
+        const texture = new THREE.CanvasTexture(canvas);
+        texture.colorSpace = THREE.SRGBColorSpace;
+        const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, transparent: true, depthWrite: false }));
+        sprite.position.set(0, 2.18, 0);
+        sprite.scale.set(2.65, 0.66, 1);
+        return sprite;
+    }
+    disposeRemote(view) {
+        view.avatar.dispose();
+        view.ring.geometry.dispose();
+        view.ring.material.dispose();
+        const material = view.label.material;
+        material.map?.dispose();
+        material.dispose();
+        view.root.removeFromParent();
+    }
+    syncRemotePlayers(players) {
+        const alive = new Set(players.map(p => p.id));
+        for (const [id, view] of this.remoteViews) {
+            if (!alive.has(id)) {
+                this.disposeRemote(view);
+                this.remoteViews.delete(id);
+            }
+        }
+        for (const player of players) {
+            let view = this.remoteViews.get(player.id);
+            if (view && view.classId !== player.classId) {
+                this.disposeRemote(view);
+                this.remoteViews.delete(player.id);
+                view = undefined;
+            }
+            if (!view) {
+                const root = new THREE.Group();
+                root.name = `remote-player-${player.id}`;
+                root.position.set(player.x, 0, player.z);
+                const avatar = new Avatar(player.classId === 'vessel' ? 'Mage' : 'Knight');
+                root.add(avatar.root);
+                const tint = player.classId === 'vessel' ? 0x7fd4d0 : 0xc7854a;
+                const ring = new THREE.Mesh(new THREE.RingGeometry(0.48, 0.57, 28), new THREE.MeshBasicMaterial({ color: tint, transparent: true, opacity: 0.62, side: THREE.DoubleSide, depthWrite: false }));
+                ring.rotation.x = -Math.PI / 2;
+                ring.position.y = 0.045;
+                root.add(ring);
+                const label = this.makeRemoteLabel(player.name, tint);
+                root.add(label);
+                this.scene.add(root);
+                view = { root, avatar, ring, label, classId: player.classId, tx: player.x, tz: player.z, faceX: player.faceX, faceZ: player.faceZ, attack: player.attack };
+                this.remoteViews.set(player.id, view);
+            }
+            view.tx = player.x;
+            view.tz = player.z;
+            view.faceX = player.faceX;
+            view.faceZ = player.faceZ;
+            view.attack = player.attack;
+            view.root.visible = player.hp > 0;
+        }
+    }
+    setAimMarker(p) {
+        if (!this.aimMarker)
+            return;
+        this.aimMarker.visible = !!p;
+        if (p)
+            this.aimMarker.position.set(p.x, 0.09, p.z);
+    }
+    buildWorld() {
+        const r = this.vrng;
+        const water = new THREE.Mesh(new THREE.PlaneGeometry(400, 400), new THREE.MeshStandardMaterial({ color: COL.waterDeep, roughness: 0.14, metalness: 0.55, transparent: true, opacity: 0.94 }));
+        water.rotation.x = -Math.PI / 2;
+        water.position.y = -0.55;
+        this.scene.add(water);
+        const stoneM = mat(COL.stone);
+        for (const rect of ZONE.walk) {
+            const isArena = rect.z0 >= 50 && rect.z1 <= 78;
+            const isZone2 = !isArena && rect.z0 >= 76;
+            const w = rect.x1 - rect.x0, d = rect.z1 - rect.z0;
+            const slab = box(w, 1.1, d, stoneM);
+            slab.position.set((rect.x0 + rect.x1) / 2, -0.55, (rect.z0 + rect.z1) / 2);
+            this.scene.add(slab);
+            const tiles = [];
+            const T = 1.85, GAP = 0.14;
+            const base = new THREE.Color(isArena ? 0x5d5a74 : isZone2 ? 0x646a60 : COL.stone);
+            for (let x = rect.x0; x < rect.x1 - 0.05; x += T) {
+                for (let z = rect.z0; z < rect.z1 - 0.05; z += T) {
+                    const tw = Math.min(T, rect.x1 - x) - GAP;
+                    const td = Math.min(T, rect.z1 - z) - GAP;
+                    if (tw < 0.3 || td < 0.3)
+                        continue;
+                    const g = new THREE.BoxGeometry(tw, 0.05, td);
+                    g.translate(x + GAP / 2 + tw / 2, 0.015 + r.range(0, 0.02), z + GAP / 2 + td / 2);
+                    const c = base.clone().multiplyScalar(r.range(0.8, 1.06));
+                    const count = g.getAttribute('position').count;
+                    const arr = new Float32Array(count * 3);
+                    for (let i = 0; i < count; i++) {
+                        arr[i * 3] = c.r;
+                        arr[i * 3 + 1] = c.g;
+                        arr[i * 3 + 2] = c.b;
+                    }
+                    g.setAttribute('color', new THREE.BufferAttribute(arr, 3));
+                    tiles.push(g);
+                }
+            }
+            const merged = mergeGeometries(tiles);
+            if (merged) {
+                this.scene.add(new THREE.Mesh(merged, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95, metalness: 0.03 })));
+            }
+            const rim = mat(COL.stoneDark);
+            const interior = (x, z) => ZONE.walk.some(o => o !== rect && x > o.x0 + 0.3 && x < o.x1 - 0.3 && z > o.z0 + 0.3 && z < o.z1 - 0.3);
+            const edgeN = Math.floor((w + d) / 2.2);
+            for (let i = 0; i < edgeN; i++) {
+                const s = new THREE.Mesh(new THREE.BoxGeometry(r.range(0.4, 0.8), r.range(0.25, 0.5), r.range(0.4, 0.8)), rim);
+                const side = Math.floor(r.next() * 4);
+                const t = r.next();
+                if (side === 0)
+                    s.position.set(rect.x0 + 0.15, 0.1, rect.z0 + t * d);
+                else if (side === 1)
+                    s.position.set(rect.x1 - 0.15, 0.1, rect.z0 + t * d);
+                else if (side === 2)
+                    s.position.set(rect.x0 + t * w, 0.1, rect.z0 + 0.15);
+                else
+                    s.position.set(rect.x0 + t * w, 0.1, rect.z1 - 0.15);
+                s.rotation.y = r.range(0, Math.PI);
+                if (interior(s.position.x, s.position.z))
+                    continue;
+                this.scene.add(s);
+            }
+        }
+        const reedM = mat(0x415547, { roughness: 1 });
+        for (let i = 0; i < 90; i++) {
+            const rect = ZONE.walk[Math.floor(r.next() * ZONE.walk.length)];
+            const reed = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.035, r.range(0.7, 1.5), 4), reedM);
+            const side = r.next() < 0.5;
+            reed.position.set(side ? (r.next() < 0.5 ? rect.x0 - r.range(0.4, 2.4) : rect.x1 + r.range(0.4, 2.4)) : rect.x0 + r.next() * (rect.x1 - rect.x0), -0.2, side ? rect.z0 + r.next() * (rect.z1 - rect.z0) : (r.next() < 0.5 ? rect.z0 - r.range(0.4, 2.4) : rect.z1 + r.range(0.4, 2.4)));
+            reed.rotation.z = r.range(-0.12, 0.12);
+            this.scene.add(reed);
+        }
+        for (const sh of ZONE.shrines) {
+            const g = new THREE.Group();
+            const basin = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.75, 0.8, 7), mat(COL.stone));
+            basin.position.y = 0.4;
+            const rune = new THREE.Mesh(new THREE.OctahedronGeometry(0.28), new THREE.MeshStandardMaterial({ color: COL.cyan, emissive: COL.cyan, emissiveIntensity: 1.6 }));
+            rune.position.y = 1.5;
+            const light = new THREE.PointLight(COL.cyan, 14, 11, 1.8);
+            light.position.y = 1.6;
+            g.add(basin, rune, light);
+            g.position.set(sh.x, 0, sh.z);
+            this.scene.add(g);
+            this.shrineRunes.push({ mesh: rune, light, id: sh.id });
+        }
+        const gate = new THREE.Group();
+        const barM = mat(0x23282e, { metalness: 0.5, roughness: 0.5 });
+        for (let i = 0; i < 7; i++) {
+            const b = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 3.2, 5), barM);
+            b.position.set(-2.1 + i * 0.7, 1.6, 0);
+            gate.add(b);
+        }
+        const cross = box(4.8, 0.22, 0.16, barM);
+        cross.position.set(0, 2.4, 0);
+        gate.add(cross);
+        const cross2 = box(4.8, 0.22, 0.16, barM);
+        cross2.position.set(0, 0.8, 0);
+        gate.add(cross2);
+        gate.position.set(0, 0, ZONE.bossGateZ);
+        this.scene.add(gate);
+        this.gateBars = gate;
+        const gate2 = new THREE.Group();
+        for (let i = 0; i < 7; i++) {
+            const b = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 3.2, 5), barM);
+            b.position.set(-2.1 + i * 0.7, 1.6, 0);
+            gate2.add(b);
+        }
+        const cross3 = box(4.8, 0.22, 0.16, barM);
+        cross3.position.set(0, 2.4, 0);
+        gate2.add(cross3);
+        const cross4 = box(4.8, 0.22, 0.16, barM);
+        cross4.position.set(0, 0.8, 0);
+        gate2.add(cross4);
+        gate2.position.set(0, 0, ZONE.zone2GateZ);
+        this.scene.add(gate2);
+        this.zone2Gate = gate2;
+    }
+    buildProps(kit) {
+        const r = this.vrng;
+        const ritualM = new THREE.MeshBasicMaterial({
+            color: 0x9a6fe0, transparent: true, opacity: 0.16, depthWrite: false, side: THREE.DoubleSide,
+        });
