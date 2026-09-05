@@ -1,0 +1,124 @@
+        this.panelEl = el;
+        return el;
+    }
+    prepareDialog(el, titleId, focusSelector) {
+        el.setAttribute('role', 'dialog');
+        el.setAttribute('aria-modal', 'true');
+        el.setAttribute('aria-labelledby', titleId);
+        el.querySelector(focusSelector)?.focus();
+    }
+    showTitle(hasSave, version) {
+        const el = this.openPanel(`
+      <div class="eyebrow">THE DROWNED OSSUARY</div>
+      <h1>HOLLOWMERE</h1>
+      <div class="sub">A LANTERN AGAINST THE MERE</div>
+      <div class="btnrow title-actions">
+        ${hasSave ? '<button id="btn-continue" class="primary">CONTINUE</button>' : ''}
+        <button id="btn-new" class="primary">NEW JOURNEY</button>
+        <button id="btn-online">ONLINE</button>
+        <button id="btn-howto">HOW TO PLAY</button>
+        <button id="btn-settings">SETTINGS</button>
+        <button id="btn-credits">CREDITS</button>
+      </div>
+      <div id="controlsnote">WASD MOVE · MOUSE AIM · LMB STRIKE · Q / 2 / 3 / 4 ABILITIES · F PARRY · SPACE DODGE<br/>
+      1 FLASK · E KINDLE SHRINE · K ABILITIES · TAB RELICS · ESC PAUSE · M MUTE · V FPS</div>
+      <div id="version">${version}</div>
+    `);
+        el.querySelector('#btn-new')?.addEventListener('click', () => hasSave ? this.showNewGameConfirm() : this.showClassSelect());
+        el.querySelector('#btn-continue')?.addEventListener('click', () => this.onChoice({ t: 'continue' }));
+        el.querySelector('#btn-online')?.addEventListener('click', () => this.onChoice({ t: 'online' }));
+        el.querySelector('#btn-howto')?.addEventListener('click', () => this.onChoice({ t: 'howto' }));
+        el.querySelector('#btn-settings')?.addEventListener('click', () => this.onChoice({ t: 'settings' }));
+        el.querySelector('#btn-credits')?.addEventListener('click', () => this.onChoice({ t: 'credits' }));
+    }
+    showOnline(defaultServer, error = '') {
+        const safeError = error.replace(/[<>&\"]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c] ?? c));
+        const el = this.openPanel(`
+      <h2 id="online-dialog-title">ONLINE ROOM</h2>
+      <div class="sub">SHARED EXPLORATION · PLAYER PRESENCE SYNC</div>
+      ${safeError ? `<div class="onlineerror">${safeError}</div>` : ''}
+      <form id="online-form" class="onlineform">
+        <label>DISPLAY NAME<input name="name" maxlength="18" value="Wanderer" autocomplete="nickname" /></label>
+        <label>ROOM CODE<input name="room" maxlength="20" value="mere" autocapitalize="off" /></label>
+        <label>CLASS<select name="classId"><option value="reaver">Reaver</option><option value="vessel">Vessel</option></select></label>
+        <label>ROOM SERVER<input name="serverUrl" value="${defaultServer}" autocapitalize="off" spellcheck="false" /></label>
+        <button class="primary" id="btn-online-join" type="submit">JOIN ROOM</button>
+      </form>
+      <div class="online-note">Online rooms synchronize player presence and movement. Combat simulation remains local in this build; the networking layer is separated so authoritative co-op can be added without rewriting rendering.</div>
+      <div class="btnrow"><button id="btn-back">BACK</button></div>
+    `);
+        const form = el.querySelector('#online-form');
+        form.addEventListener('submit', (event) => {
+            event.preventDefault();
+            const join = el.querySelector('#btn-online-join');
+            if (join?.disabled)
+                return;
+            if (join) {
+                join.disabled = true;
+                join.textContent = 'CONNECTING…';
+            }
+            const data = new FormData(form);
+            this.onChoice({
+                t: 'onlineJoin',
+                room: String(data.get('room') ?? 'mere'),
+                name: String(data.get('name') ?? 'Wanderer'),
+                classId: data.get('classId') === 'vessel' ? 'vessel' : 'reaver',
+                serverUrl: String(data.get('serverUrl') ?? defaultServer),
+            });
+        });
+        el.querySelector('#btn-back')?.addEventListener('click', () => this.onChoice({ t: 'title' }));
+        this.prepareDialog(el, 'online-dialog-title', 'input[name="name"]');
+    }
+    setOnlineStatus(text, connected) {
+        const badge = document.getElementById('onlinebadge');
+        if (!badge)
+            return;
+        badge.textContent = text;
+        badge.classList.toggle('hidden', !connected);
+    }
+    showNewGameConfirm() {
+        const el = this.openPanel(`
+      <div class="eyebrow">NEW JOURNEY</div>
+      <h2 id="overwrite-dialog-title">LEAVE THE OLD PATH?</h2>
+      <div class="sub">STARTING A NEW OFFLINE JOURNEY REPLACES THE CURRENT SAVE SLOT</div>
+      <div class="btnrow"><button id="btn-confirm-new" class="warn">CHOOSE A NEW VESSEL</button><button id="btn-back">KEEP CURRENT JOURNEY</button></div>
+    `);
+        el.querySelector('#btn-confirm-new')?.addEventListener('click', () => this.showClassSelect());
+        el.querySelector('#btn-back')?.addEventListener('click', () => this.onChoice({ t: 'title' }));
+        this.prepareDialog(el, 'overwrite-dialog-title', '#btn-back');
+    }
+    showClassSelect() {
+        const cards = CLASSES.map(c => `
+      <button type="button" class="classcard" data-class="${c.id}">
+        <span class="classcard-title">${c.name.toUpperCase()}</span>
+        <span class="classcard-blurb">${c.blurb}</span>
+        <span class="hint">HP ${c.hp} · ${c.melee ? 'BLADE' : 'BOLT'} · 4-ABILITY KIT</span>
+      </button>`).join('');
+        const el = this.openPanel(`
+      <h2 id="class-dialog-title">CHOOSE YOUR VESSEL</h2>
+      <div class="sub">EACH PATH HAS FOUR UPGRADABLE ABILITIES</div>
+      <div class="classrow">${cards}</div>
+      <div class="btnrow"><button id="btn-back">BACK</button></div>
+    `);
+        el.querySelectorAll('.classcard').forEach(card => card.addEventListener('click', () => {
+            this.onChoice({ t: 'newgame', classId: card.dataset.class });
+        }));
+        el.querySelector('#btn-back')?.addEventListener('click', () => this.onChoice({ t: 'title' }));
+        this.prepareDialog(el, 'class-dialog-title', '.classcard');
+    }
+    showDeath(souls) {
+        const el = this.openPanel(`
+      <h2 id="death-dialog-title" style="color:#c2453a">YOU FADE INTO THE MERE</h2>
+      <div class="sub">THE SHRINE STILL BURNS · ◆ ${souls} KEPT</div>
+      <div class="btnrow"><button id="btn-respawn" class="primary">RISE AGAIN</button><button id="btn-title" class="warn">ABANDON</button></div>
+    `);
+        el.querySelector('#btn-respawn')?.addEventListener('click', () => this.onChoice({ t: 'respawn' }));
+        el.querySelector('#btn-title')?.addEventListener('click', () => this.onChoice({ t: 'title' }));
+        this.prepareDialog(el, 'death-dialog-title', '#btn-respawn');
+    }
+    showVictory(sim, timeSec, deaths) {
+        const mm = Math.floor(timeSec / 60), ss = Math.floor(timeSec % 60).toString().padStart(2, '0');
+        const el = this.openPanel(`
+      <div class="eyebrow">JOURNEY COMPLETE</div>
+      <h2 id="victory-dialog-title" style="color:#6fe3d4">THE MERE IS QUIET</h2>
+      <div class="stats">THE BARROW KNIGHT LIES STILL<br/>◆ ${sim.souls} SOULS · LEVEL ${sim.level} · ${mm}:${ss} · ${deaths} ${deaths === 1 ? 'DEATH' : 'DEATHS'}<br/>${sim.inventory.owned.length}/${Object.keys(ITEMS).length} RELICS · ${SLOTS.reduce((n, slot) => n + sim.skillRanks[slot], 0)} ABILITY RANKS</div>
