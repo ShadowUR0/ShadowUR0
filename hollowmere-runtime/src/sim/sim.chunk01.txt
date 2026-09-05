@@ -1,0 +1,380 @@
+import { Rng, Hasher } from './rng.js';
+import { CLASSES, ENEMIES, BOSS, ELITE, PLAYER, ZONE, SIM_DT, } from './content.js';
+import { BOSS_REWARD, POCKET_REWARDS, createInventory, equipOwnedItem, grantItem, inventoryEffect, } from './items.js';
+import { createSkillCooldowns, createSkillRanks, skillDamage, skillFor, } from './skills.js';
+export const NULL_INPUT = {
+    mx: 0, mz: 0, aimX: 0, aimZ: 0,
+    attack: false, skill: false, skill2: false, skill3: false, ultimate: false,
+    parry: false, dodge: false, flask: false, interact: false,
+};
+function inRect(r, x, z) {
+    return x >= r.x0 && x <= r.x1 && z >= r.z0 && z <= r.z1;
+}
+function walkable(x, z, pr) {
+    let ok = false;
+    for (const r of ZONE.walk) {
+        if (x >= r.x0 + pr && x <= r.x1 - pr && z >= r.z0 + pr && z <= r.z1 - pr) {
+            ok = true;
+            break;
+        }
+    }
+    if (!ok) {
+        for (const r of ZONE.walk)
+            if (inRect(r, x, z)) {
+                ok = true;
+                break;
+            }
+        if (!ok)
+            return false;
+    }
+    for (const o of ZONE.obstacles) {
+        if (o.kind === 'arch')
+            continue;
+        const dx = x - o.x, dz = z - o.z;
+        if (dx * dx + dz * dz < (o.r + pr) * (o.r + pr))
+            return false;
+    }
+    return true;
+}
+function zone1Pockets(sim) {
+    return sim.pockets.filter(p => ZONE.pockets.find(zp => zp.id === p.id)?.zone === 1);
+}
+function len(x, z) { return Math.hypot(x, z); }
+function norm(x, z) {
+    const l = len(x, z);
+    return l > 1e-6 ? [x / l, z / l] : [0, 0];
+}
+function dist(ax, az, bx, bz) { return Math.hypot(ax - bx, az - bz); }
+function moveCircle(sim, x, z, dx, dz, pr, isPlayer) {
+    let nx = x, nz = z;
+    const gateBlocked = isPlayer && !sim.gateOpen;
+    const arenaLocked = isPlayer && sim.bossState === 'active';
+    const zone2Blocked = isPlayer && sim.bossState !== 'dead';
+    const tryPos = (tx, tz) => {
+        if (gateBlocked && z < ZONE.bossGateZ && tz > ZONE.bossGateZ - pr)
+            return false;
+        if (arenaLocked
+            && z >= ZONE.arenaLockZ
+            && tz < ZONE.arenaLockZ + pr
+            && tz < z)
+            return false;
+        if (zone2Blocked && z < ZONE.zone2GateZ && tz > ZONE.zone2GateZ - pr)
+            return false;
+        return walkable(tx, tz, pr);
+    };
+    if (dx !== 0 && tryPos(nx + dx, nz))
+        nx += dx;
+    if (dz !== 0 && tryPos(nx, nz + dz))
+        nz += dz;
+    return [nx, nz];
+}
+let enemySeq = 1;
+function spawnEnemy(sim, kind, x, z, pocket, elite = false) {
+    const def = ENEMIES[kind];
+    const hp = Math.round(def.hp * (elite ? ELITE.hpMul : 1));
+    const e = {
+        id: sim.nextId++, kind, def, elite,
+        x, z, faceX: 0, faceZ: -1,
+        hp, maxHp: hp,
+        state: 'idle', t: 0,
+        homeX: x, homeZ: z,
+        attack: 'strike', lockX: 0, lockZ: -1,
+        slowT: 0, hurtT: 0, slamCd: 0, volleyCd: 2, rushCd: 1.5,
+        pocket, contactDone: false,
+    };
+    sim.enemies.push(e);
+    return e;
+}
+export function enemyDamage(e) {
+    return Math.round(e.def.dmg * (e.elite ? ELITE.dmgMul : 1));
+}
+export function createSim(seed, classId, save) {
+    const cls = CLASSES.find(c => c.id === classId) ?? CLASSES[0];
+    const validSave = save?.classId === classId ? save : null;
+    let inventory = createInventory(validSave?.inventory, validSave?.equipped?.relic);
+    if (validSave?.v === 1) {
+        for (const pocketId of validSave.cleared) {
+            const reward = POCKET_REWARDS[pocketId];
+            if (reward)
+                inventory = grantItem(inventory, reward, inventory.equipped.relic === null).state;
+        }
+    }
+    if (validSave?.bossDown || validSave?.victory) {
+        inventory = grantItem(inventory, BOSS_REWARD, inventory.equipped.relic === null).state;
+    }
+    const restoredEffect = inventoryEffect(inventory);
+    const sim = {
+        tick: 0, time: 0, rng: new Rng(seed), cls,
+        px: ZONE.playerSpawn.x, pz: ZONE.playerSpawn.z,
+        faceX: 0, faceZ: 1,
+        hp: cls.hp, maxHp: cls.hp, dmgBonus: 0,
+        atk: 'idle', atkT: 0, atkAimX: 0, atkAimZ: 1,
+        skillCd: 0, skillCds: createSkillCooldowns(),
+        skillRanks: createSkillRanks(validSave?.skillRanks),
+        skillPoints: validSave?.v === 4 ? Math.max(0, Math.floor(validSave.skillPoints ?? 0)) : Math.max(0, validSave?.level ?? 0),
+        focus: 100, maxFocus: 100, powerBuffT: 0, powerBuff: 0,
+        parryT: -1, parryCd: 0,
+        dodgeT: -1, dodgeCd: 0, dodgeDX: 0, dodgeDZ: 1,
+        flasks: PLAYER.flaskMax, sipT: -1,
+        invulnT: 0,
+        souls: 0, level: 0,
+        inventory,
+        enemies: [], projs: [],
+        pockets: ZONE.pockets.map(p => ({ id: p.id, state: 'idle' })),
+        gateOpen: false,
+        bossState: 'unspawned', phase2: false, zone2Seen: false,
+        checkpoint: 'mere-gate',
+        dead: false, victory: false,
+        events: [], nextId: 1,
+    };
+    if (validSave) {
+        sim.souls = validSave.souls;
+        sim.level = validSave.level;
+        sim.maxHp = cls.hp + validSave.level * PLAYER.levelHp + restoredEffect.maxHp;
+        sim.maxFocus = Math.min(140, 100 + validSave.level * 8);
+        sim.focus = sim.maxFocus;
+        sim.dmgBonus = validSave.level * PLAYER.levelDmg;
+        sim.hp = sim.maxHp;
+        for (const pid of validSave.cleared) {
+            const p = sim.pockets.find(q => q.id === pid);
+            if (p)
+                p.state = 'cleared';
+        }
+        sim.gateOpen = zone1Pockets(sim).every(p => p.state === 'cleared');
+        sim.checkpoint = validSave.checkpoint;
+        const sh = ZONE.shrines.find(s => s.id === validSave.checkpoint);
+        if (sh) {
+            sim.px = sh.x;
+            sim.pz = sh.z - 1.5;
+        }
+        if (validSave.v === 3 || validSave.v === 4) {
+            if (validSave.bossDown)
+                sim.bossState = 'dead';
+            if (validSave.victory)
+                sim.victory = true;
+        }
+        else {
+            if (validSave.victory)
+                sim.bossState = 'dead';
+        }
+    }
+    sim.zone2Seen = sim.checkpoint === 'ossuary-gate';
+    return sim;
+}
+export function makeSave(sim) {
+    return {
+        v: 4, classId: sim.cls.id, souls: sim.souls, level: sim.level,
+        cleared: sim.pockets.filter(p => p.state === 'cleared').map(p => p.id),
+        checkpoint: sim.checkpoint, victory: sim.victory,
+        bossDown: sim.bossState === 'dead',
+        inventory: [...sim.inventory.owned],
+        equipped: { ...sim.inventory.equipped },
+        skillRanks: { ...sim.skillRanks }, skillPoints: sim.skillPoints,
+    };
+}
+function playerDamageValue(sim, base) {
+    return base + sim.dmgBonus + inventoryEffect(sim.inventory).damage + (sim.powerBuffT > 0 ? sim.powerBuff : 0);
+}
+function applyEquipmentHpDelta(sim, before, after) {
+    const delta = after - before;
+    sim.maxHp += delta;
+    if (delta > 0)
+        sim.hp += delta;
+    sim.hp = Math.min(sim.maxHp, sim.hp);
+}
+function grantRewardItem(sim, reward) {
+    const before = inventoryEffect(sim.inventory);
+    const tx = grantItem(sim.inventory, reward, sim.inventory.equipped.relic === null);
+    if (!tx.changed)
+        return false;
+    sim.inventory = tx.state;
+    const after = inventoryEffect(sim.inventory);
+    applyEquipmentHpDelta(sim, before.maxHp, after.maxHp);
+    sim.events.push({ t: 'itemGain', s: reward });
+    if (tx.equippedChanged)
+        sim.events.push({ t: 'equip', s: reward });
+    return true;
+}
+export function grantPocketReward(sim, pocketId) {
+    const reward = POCKET_REWARDS[pocketId];
+    return reward ? grantRewardItem(sim, reward) : false;
+}
+export function grantBossReward(sim) {
+    return grantRewardItem(sim, BOSS_REWARD);
+}
+export function equipItem(sim, itemId) {
+    const before = inventoryEffect(sim.inventory);
+    const tx = equipOwnedItem(sim.inventory, itemId);
+    if (!tx.changed)
+        return sim.inventory.equipped.relic === itemId;
+    sim.inventory = tx.state;
+    const after = inventoryEffect(sim.inventory);
+    applyEquipmentHpDelta(sim, before.maxHp, after.maxHp);
+    sim.events.push({ t: 'equip', s: itemId });
+    return true;
+}
+function hurtPlayer(sim, dmg, source = null, parryable = false) {
+    if (sim.dead || sim.victory)
+        return 'evade';
+    const dodging = sim.dodgeT >= PLAYER.dodgeIframe0 && sim.dodgeT <= PLAYER.dodgeIframe1;
+    if (dodging || sim.invulnT > 0)
+        return 'evade';
+    if (parryable && sim.parryT >= 0 && sim.parryT <= PLAYER.parryWindow) {
+        sim.parryT = -1;
+        if (source && source.state !== 'dead') {
+            source.state = 'recover';
+            source.t = -PLAYER.parryStagger;
+            source.contactDone = true;
+            source.hurtT = 0.2;
+        }
+        sim.focus = Math.min(sim.maxFocus, sim.focus + 20);
+        sim.events.push({
+            t: 'parry', id: source?.id,
+            x: source ? source.x : sim.px, z: source ? source.z : sim.pz,
+        });
+        return 'parry';
+    }
+    sim.hp -= dmg;
+    sim.invulnT = PLAYER.invulnAfterHit;
+    sim.events.push({ t: 'playerHit', n: dmg, x: sim.px, z: sim.pz });
+    if (sim.hp <= 0) {
+        sim.hp = 0;
+        sim.dead = true;
+        sim.events.push({ t: 'death' });
+    }
+    return 'hit';
+}
+function hurtEnemy(sim, e, dmg) {
+    if (e.state === 'dead')
+        return;
+    e.hp -= dmg;
+    e.hurtT = 0.15;
+    sim.events.push({ t: 'hit', id: e.id, n: dmg, x: e.x, z: e.z });
+    if (e.hp <= 0) {
+        e.hp = 0;
+        e.state = 'dead';
+        e.t = 0;
+        sim.events.push({ t: 'kill', id: e.id, x: e.x, z: e.z, s: e.kind });
+        gainSouls(sim, e.def.souls * (e.elite ? ELITE.soulsMul : 1));
+        if (e.kind === 'barrow') {
+            grantBossReward(sim);
+            sim.bossState = 'dead';
+            sim.events.push({ t: 'bossDown' });
+        }
+        checkPockets(sim);
+    }
+}
+function gainSouls(sim, n) {
+    sim.souls += n;
+    sim.events.push({ t: 'souls', n });
+    while (sim.level < PLAYER.levelThresholds.length && sim.souls >= PLAYER.levelThresholds[sim.level]) {
+        sim.level++;
+        sim.maxHp += PLAYER.levelHp;
+        sim.dmgBonus += PLAYER.levelDmg;
+        sim.hp = Math.min(sim.maxHp, sim.hp + sim.maxHp * PLAYER.levelHealFrac);
+        sim.skillPoints++;
+        sim.maxFocus = Math.min(140, 100 + sim.level * 8);
+        sim.focus = sim.maxFocus;
+        sim.events.push({ t: 'levelup', n: sim.level });
+    }
+}
+function checkPockets(sim) {
+    for (const p of sim.pockets) {
+        if (p.state === 'active') {
+            const alive = sim.enemies.some(e => e.pocket === p.id && e.state !== 'dead');
+            if (!alive) {
+                p.state = 'cleared';
+                sim.events.push({ t: 'pocketCleared', s: p.id });
+                grantPocketReward(sim, p.id);
+            }
+        }
+    }
+    if (!sim.gateOpen && zone1Pockets(sim).every(p => p.state === 'cleared')) {
+        sim.gateOpen = true;
+        sim.events.push({ t: 'gateOpen' });
+    }
+}
+function canUseSkill(sim, slot) {
+    const def = skillFor(sim.cls.id, slot);
+    const rank = sim.skillRanks[slot];
+    return rank > 0
+        && sim.level >= def.requiredLevel
+        && sim.skillCds[slot] <= 0
+        && sim.focus >= def.focusCost
+        && sim.atk === 'idle' && sim.dodgeT < 0 && sim.sipT < 0 && sim.parryT < 0;
+}
+function useSkill(sim, slot, ax, az) {
+    if (!canUseSkill(sim, slot))
+        return false;
+    const def = skillFor(sim.cls.id, slot);
+    const rank = sim.skillRanks[slot];
+    const damage = playerDamageValue(sim, skillDamage(def, rank));
+    sim.focus = Math.max(0, sim.focus - def.focusCost);
+    sim.skillCds[slot] = Math.max(1.2, def.cooldown - (rank - 1) * 0.45);
+    if (slot === 'skill1')
+        sim.skillCd = sim.skillCds.skill1;
+    sim.faceX = ax;
+    sim.faceZ = az;
+    sim.events.push({ t: 'skillCast', s: def.id, x: sim.px, z: sim.pz, n: rank, r: def.radius });
+    if (def.id === 'grave-cleave') {
+        const dashLen = 3.0 + (rank - 1) * 0.35;
+        for (let i = 0; i < 6; i++) {
+            const [nx, nz] = moveCircle(sim, sim.px, sim.pz, ax * (dashLen / 6), az * (dashLen / 6), PLAYER.radius, true);
+            sim.px = nx;
+            sim.pz = nz;
+        }
+        for (const e of sim.enemies)
+            if (e.state !== 'dead' && dist(sim.px, sim.pz, e.x, e.z) <= def.radius + e.def.radius)
+                hurtEnemy(sim, e, damage);
+        sim.events.push({ t: 'cleave', x: sim.px, z: sim.pz });
+    }
+    else if (def.id === 'frost-nova') {
+        for (const e of sim.enemies) {
+            if (e.state === 'dead' || dist(sim.px, sim.pz, e.x, e.z) > def.radius + e.def.radius)
+                continue;
+            hurtEnemy(sim, e, damage);
+            e.slowT = PLAYER.novaSlowTime + (rank - 1) * 0.35;
+        }
+        sim.events.push({ t: 'nova', x: sim.px, z: sim.pz });
+    }
+    else if (def.id === 'chain-rend') {
+        let target = null, best = def.radius;
+        for (const e of sim.enemies) {
+            if (e.state === 'dead')
+                continue;
+            const d = dist(sim.px, sim.pz, e.x, e.z);
+            if (d < best) {
+                best = d;
+                target = e;
+            }
+        }
+        if (target) {
+            const [tx, tz] = norm(target.x - sim.px, target.z - sim.pz);
+            target.x = sim.px + tx * 1.75;
+            target.z = sim.pz + tz * 1.75;
+            target.state = 'recover';
+            target.t = -0.35 - rank * 0.08;
+            hurtEnemy(sim, target, damage);
+            sim.events.push({ t: 'cleave', x: target.x, z: target.z });
+        }
+    }
+    else if (def.id === 'war-cry') {
+        for (const e of sim.enemies) {
+            if (e.state === 'dead' || dist(sim.px, sim.pz, e.x, e.z) > def.radius + e.def.radius)
+                continue;
+            hurtEnemy(sim, e, damage);
+            if (e.hp > 0) {
+                e.state = 'recover';
+                e.t = -0.25 - rank * 0.08;
+            }
+        }
+        sim.hp = Math.min(sim.maxHp, sim.hp + sim.maxHp * (0.08 + rank * 0.03));
+        sim.powerBuffT = 5 + rank;
+        sim.powerBuff = 3 + rank * 2;
+        sim.events.push({ t: 'nova', x: sim.px, z: sim.pz });
+    }
+    else if (def.id === 'kingbreaker') {
+        for (const e of sim.enemies)
+            if (e.state !== 'dead' && dist(sim.px, sim.pz, e.x, e.z) <= def.radius + e.def.radius)
+                hurtEnemy(sim, e, damage);
+        sim.invulnT = Math.max(sim.invulnT, 0.45);
