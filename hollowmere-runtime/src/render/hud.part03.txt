@@ -1,0 +1,102 @@
+      <div class="btnrow"><button id="btn-title" class="primary">RETURN TO TITLE</button></div>
+    `);
+        el.querySelector('#btn-title')?.addEventListener('click', () => this.onChoice({ t: 'title' }));
+        this.prepareDialog(el, 'victory-dialog-title', '#btn-title');
+    }
+    showPause(muted) {
+        const el = this.openPanel(`
+      <h2 id="pause-dialog-title">PAUSED</h2>
+      <div class="pausegrid">
+        <button id="btn-resume" class="primary">RESUME</button>
+        <button id="btn-skills">ABILITIES</button>
+        <button id="btn-relics">RELICS</button>
+        <button id="btn-settings">SETTINGS</button>
+        <button id="btn-shrine">RETURN TO SHRINE</button>
+        <button id="btn-mute">${muted ? 'UNMUTE' : 'MUTE'}</button>
+        <button id="btn-title" class="warn">TITLE</button>
+      </div>
+    `);
+        el.querySelector('#btn-resume')?.addEventListener('click', () => this.onChoice({ t: 'resume' }));
+        el.querySelector('#btn-skills')?.addEventListener('click', () => this.onChoice({ t: 'skills' }));
+        el.querySelector('#btn-relics')?.addEventListener('click', () => this.onChoice({ t: 'inventory' }));
+        el.querySelector('#btn-settings')?.addEventListener('click', () => this.onChoice({ t: 'settings' }));
+        el.querySelector('#btn-shrine')?.addEventListener('click', () => this.onChoice({ t: 'restartAtShrine' }));
+        el.querySelector('#btn-title')?.addEventListener('click', () => this.onChoice({ t: 'title' }));
+        el.querySelector('#btn-mute')?.addEventListener('click', () => this.onChoice({ t: 'toggleOption', key: 'muted' }));
+        this.prepareDialog(el, 'pause-dialog-title', '#btn-resume');
+    }
+    showSkills(sim) {
+        const cards = SLOTS.map(slot => {
+            const def = skillFor(sim.cls.id, slot);
+            const rank = sim.skillRanks[slot];
+            const levelLocked = sim.level < def.requiredLevel;
+            const canBuy = !levelLocked && sim.skillPoints > 0 && rank < def.maxRank;
+            const status = levelLocked ? `UNLOCKS AT LEVEL ${def.requiredLevel}` : rank === 0 ? 'LOCKED · SPEND 1 POINT' : `RANK ${rank}/${def.maxRank}`;
+            const damage = def.baseDamage + Math.max(0, rank - 1) * def.damagePerRank;
+            return `<article class="skillcard ${rank === 0 ? 'locked' : ''}">
+        <div class="skillmeta"><span>${SLOT_KEYS[slot]}</span><span>${status}</span></div>
+        <h3>${def.name.toUpperCase()}</h3>
+        <p>${def.description}</p>
+        <div class="skillstats">${def.focusCost} FOCUS · ${def.cooldown.toFixed(0)}s BASE CD · ${damage} BASE DAMAGE</div>
+        <button data-upgrade="${slot}" ${canBuy ? '' : 'disabled'}>${rank === 0 ? 'UNLOCK' : rank < def.maxRank ? 'UPGRADE' : 'MAX RANK'}</button>
+      </article>`;
+        }).join('');
+        const el = this.openPanel(`
+      <h2 id="skills-dialog-title">ABILITIES</h2>
+      <div class="sub">${sim.cls.name.toUpperCase()} · LEVEL ${sim.level} · <strong>${sim.skillPoints} SKILL POINT${sim.skillPoints === 1 ? '' : 'S'}</strong></div>
+      <div class="skillgrid">${cards}</div>
+      <div class="btnrow"><button id="btn-resume">RETURN TO THE MERE</button></div>
+    `, 'scrollpanel');
+        el.querySelectorAll('[data-upgrade]').forEach(button => button.addEventListener('click', () => {
+            this.onChoice({ t: 'upgradeSkill', slot: button.dataset.upgrade });
+        }));
+        el.querySelector('#btn-resume')?.addEventListener('click', () => this.onChoice({ t: 'resume' }));
+        this.prepareDialog(el, 'skills-dialog-title', '[data-upgrade]:not([disabled]), #btn-resume');
+    }
+    showInventory(sim) {
+        const equipped = sim.inventory.equipped.relic;
+        const effect = inventoryEffect(sim.inventory);
+        const effectSummary = [effect.damage > 0 ? `+${effect.damage} DAMAGE` : '', effect.maxHp > 0 ? `+${effect.maxHp} MAX HP` : ''].filter(Boolean).join(' · ') || 'NO ACTIVE BOON';
+        const cards = sim.inventory.owned.map((itemId) => {
+            const item = ITEMS[itemId], active = equipped === itemId;
+            return `<article class="reliccard ${active ? 'equipped' : ''}"><div class="rarity">${item.rarity.toUpperCase()} RELIC</div><h3>${item.name.toUpperCase()}</h3><p>${item.lore}</p><div class="reliceffect">${item.effectText}</div><button data-equip="${item.id}" aria-pressed="${active}" ${active ? 'disabled' : ''}>${active ? 'EQUIPPED' : 'EQUIP'}</button></article>`;
+        }).join('');
+        const el = this.openPanel(`
+      <h2 id="relic-dialog-title">RELICS OF THE MERE</h2>
+      <div class="sub">ONE RELIC MAY ANSWER YOUR CALL</div>
+      <div class="inventorysummary">ACTIVE BOON · ${effectSummary}</div>
+      <div class="relicgrid">${cards || '<div class="emptyrelics">The mere has yielded nothing yet.<br/>Defeat encounters and their rulers to claim relics.</div>'}</div>
+      <div class="btnrow inventoryclose"><button id="btn-resume">RETURN TO THE MERE</button></div>
+    `, 'scrollpanel');
+        el.querySelectorAll('[data-equip]').forEach(button => button.addEventListener('click', () => {
+            const itemId = button.dataset.equip;
+            if (itemId && itemId in ITEMS)
+                this.onChoice({ t: 'equip', itemId: itemId });
+        }));
+        el.querySelector('#btn-resume')?.addEventListener('click', () => this.onChoice({ t: 'resume' }));
+        this.prepareDialog(el, 'relic-dialog-title', '[data-equip]:not([disabled]), #btn-resume');
+    }
+    showSettings(opt, fromGame) {
+        const row = (key, label, desc) => `<button class="settingrow" data-opt="${key}"><span><b>${label}</b><small>${desc}</small></span><strong>${opt[key] ? 'ON' : 'OFF'}</strong></button>`;
+        const el = this.openPanel(`
+      <h2 id="settings-dialog-title">SETTINGS</h2>
+      <div class="settingslist">
+        ${row('muted', 'AUDIO', 'Music, ambience, and combat sound')}
+        ${row('fpsVisible', 'FPS COUNTER', 'Show real-time frame rate')}
+        ${row('screenShake', 'SCREEN SHAKE', 'Impact camera movement')}
+        ${row('aimMarker', 'AIM MARKER', 'Ground marker under mouse aim')}
+      </div>
+      <div class="btnrow"><button id="btn-back">${fromGame ? 'RETURN TO GAME' : 'BACK'}</button></div>
+    `);
+        el.querySelectorAll('[data-opt]').forEach(button => button.addEventListener('click', () => this.onChoice({ t: 'toggleOption', key: button.dataset.opt })));
+        el.querySelector('#btn-back')?.addEventListener('click', () => this.onChoice({ t: fromGame ? 'resume' : 'title' }));
+        this.prepareDialog(el, 'settings-dialog-title', '[data-opt]');
+    }
+    showHowTo() {
+        const el = this.openPanel(`
+      <h2 id="howto-dialog-title">HOW TO PLAY</h2>
+      <div class="guidegrid">
+        <article><h3>COMBAT</h3><p>Strike with LMB. Dodge with Space. Parry with F during the brief perfect window. Successful parries refill Focus and stagger the attacker.</p></article>
+        <article><h3>ABILITIES</h3><p>Use Q, 2, 3, and 4. Abilities spend Focus. New skills unlock through levels and skill points. Press K to upgrade them.</p></article>
+        <article><h3>PROGRESSION</h3><p>Kill enemies for Souls. Soul thresholds increase your level, health, damage, Focus capacity, and grant skill points.</p></article>
+        <article><h3>WORLD</h3><p>Clear encounter pockets, kindle shrines with E, defeat the Barrow Knight, and descend into the Drowned Ossuary.</p></article>
