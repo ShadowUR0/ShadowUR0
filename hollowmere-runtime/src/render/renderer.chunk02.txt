@@ -1,0 +1,300 @@
+        const ringOuter = new THREE.Mesh(new THREE.RingGeometry(5.35, 5.55, 64), ritualM);
+        const ringInner = new THREE.Mesh(new THREE.RingGeometry(BOSS.slamRadius - 0.08, BOSS.slamRadius + 0.08, 48), ritualM);
+        for (const ring of [ringOuter, ringInner]) {
+            ring.rotation.x = -Math.PI / 2;
+            ring.position.set(ZONE.bossSpawn.x, 0.078, ZONE.bossSpawn.z);
+            this.scene.add(ring);
+        }
+        const fogTex = (() => {
+            const c = document.createElement('canvas');
+            c.width = 256;
+            c.height = 128;
+            const g2 = c.getContext('2d');
+            const grad = g2.createLinearGradient(0, 128, 0, 0);
+            grad.addColorStop(0, 'rgba(178,136,255,0.9)');
+            grad.addColorStop(0.45, 'rgba(164,120,244,0.5)');
+            grad.addColorStop(1, 'rgba(154,111,224,0)');
+            g2.fillStyle = grad;
+            g2.fillRect(0, 0, 256, 128);
+            const sr = new Rng(4242);
+            for (let i = 0; i < 90; i++) {
+                const x = sr.next() * 256, wdt = sr.range(1.5, 6), hgt = sr.range(40, 126);
+                g2.fillStyle = `rgba(198,164,255,${sr.range(0.08, 0.3).toFixed(2)})`;
+                g2.fillRect(x, 128 - hgt, wdt, hgt);
+            }
+            const tex = new THREE.CanvasTexture(c);
+            tex.wrapS = THREE.RepeatWrapping;
+            return tex;
+        })();
+        this.fogGate = new THREE.Mesh(new THREE.PlaneGeometry(ZONE.arenaTrigger.x1 - ZONE.arenaTrigger.x0, 5), new THREE.MeshBasicMaterial({
+            map: fogTex, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide,
+            blending: THREE.AdditiveBlending, toneMapped: false,
+        }));
+        this.fogGate.position.set(0, 2.5, ZONE.arenaLockZ);
+        this.fogGate.visible = false;
+        this.scene.add(this.fogGate);
+        if (kit) {
+            let oi = 0;
+            for (const o of ZONE.obstacles) {
+                const prop = kit.makeObstacle(o.kind, oi++);
+                prop.position.set(o.x, 0, o.z);
+                if (o.kind !== 'arch')
+                    prop.rotation.y = r.range(0, Math.PI * 2);
+                if (o.kind === 'grave')
+                    prop.rotation.z = r.range(-0.12, 0.12);
+                this.scene.add(prop);
+            }
+            for (const ln of ZONE.lanterns) {
+                const { group, lightY } = kit.makeLanternPost();
+                group.position.set(ln.x, 0, ln.z);
+                group.rotation.y = Math.atan2(-ln.x, 0.001) + r.range(-0.3, 0.3);
+                const core = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 8), new THREE.MeshStandardMaterial({ color: COL.amber, emissive: COL.amber, emissiveIntensity: 2.4 }));
+                core.position.y = lightY;
+                const light = new THREE.PointLight(COL.amber, 22, 14, 1.8);
+                light.position.y = lightY + 0.05;
+                group.add(core, light);
+                this.scene.add(group);
+                this.lanternLights.push({ light, base: 22, phase: r.range(0, 6.28) });
+            }
+            for (let i = 0; i < 10; i++) {
+                const skull = i % 3 === 2;
+                const s = kit.makeScatter(skull ? 3 : 0);
+                if (skull)
+                    s.scale.multiplyScalar(0.45);
+                const a = r.range(0, 6.28), rad = r.range(2.5, 10);
+                s.position.set(ZONE.bossSpawn.x + Math.sin(a) * rad, 0.02, ZONE.bossSpawn.z + Math.cos(a) * rad);
+                s.rotation.y = r.range(0, 6.28);
+                this.scene.add(s);
+            }
+            const decor = [
+                { kind: 2, x: -6.8, z: 21.8, rot: 0.5, scale: 0.6 },
+                { kind: 2, x: 6.4, z: 41.2, rot: -1.1, scale: 0.6 },
+                { kind: 5, x: -6.2, z: 7.2 },
+                { kind: 5, x: 11.4, z: 60.5 },
+                { kind: 5, x: -11.6, z: 72.5 },
+            ];
+            for (const d of decor) {
+                const s = kit.makeScatter(d.kind);
+                if (d.scale)
+                    s.scale.multiplyScalar(d.scale);
+                s.position.set(d.x, 0.02, d.z);
+                s.rotation.y = d.rot ?? r.range(0, 6.28);
+                this.scene.add(s);
+            }
+            for (const span of [{ z0: 9.5, z1: 14 }, { z0: 46.5, z1: 49 }, { z0: 80, z1: 94 }]) {
+                for (let z = span.z0; z <= span.z1; z += 1.6) {
+                    for (const x of [-2.05, 2.05]) {
+                        const f = kit.makeScatter(4);
+                        f.position.set(x, 0.02, z);
+                        f.rotation.y = Math.PI / 2;
+                        this.scene.add(f);
+                    }
+                }
+            }
+            for (let i = 0; i < 24; i++) {
+                const skull = i % 3 === 2;
+                const s = kit.makeScatter(skull ? 3 : 0);
+                if (skull)
+                    s.scale.multiplyScalar(0.45);
+                const x = -8.3 + r.next() * 16.6;
+                const z = 96.5 + r.next() * 12.5;
+                if (Math.abs(x) < 1.6 && z < 98)
+                    continue;
+                s.position.set(x, 0.02, z);
+                s.rotation.y = r.range(0, 6.28);
+                this.scene.add(s);
+            }
+            const ossuaryDecor = [
+                { kind: 2, x: -7.6, z: 98.6, rot: 0.4, scale: 0.6 },
+                { kind: 2, x: 7.3, z: 102.2, rot: -0.8, scale: 0.6 },
+                { kind: 2, x: -6.9, z: 106.4, rot: 1.1, scale: 0.6 },
+                { kind: 5, x: -8.1, z: 104.3 },
+                { kind: 5, x: 8.2, z: 99.2 },
+            ];
+            for (const d of ossuaryDecor) {
+                const s = kit.makeScatter(d.kind);
+                if (d.scale)
+                    s.scale.multiplyScalar(d.scale);
+                s.position.set(d.x, 0.02, d.z);
+                s.rotation.y = d.rot ?? r.range(0, 6.28);
+                this.scene.add(s);
+            }
+            for (let i = 0; i < 6; i++) {
+                const skull = i % 2 === 1;
+                const s = kit.makeScatter(skull ? 3 : 0);
+                if (skull)
+                    s.scale.multiplyScalar(0.45);
+                const x = -5.3 + r.next() * 10.6;
+                const z = 110.5 + r.next() * 7.5;
+                s.position.set(x, 0.02, z);
+                s.rotation.y = r.range(0, 6.28);
+                this.scene.add(s);
+            }
+            const stairGroup = new THREE.Group();
+            const STAIR_STEPS = 7;
+            const top = new THREE.Color(0x6b7264);
+            const bottom = new THREE.Color(0x090b0e);
+            for (let i = 0; i < STAIR_STEPS; i++) {
+                const k = i / (STAIR_STEPS - 1);
+                const stepW = 4.2 - i * 0.28;
+                const c = top.clone().lerp(bottom, Math.pow(k, 0.8));
+                const step = box(stepW, 0.05, 0.82, new THREE.MeshBasicMaterial({ color: c, toneMapped: false }));
+                step.position.set(0, 0.1 + i * 0.006, 116.6 + i * 0.82);
+                stairGroup.add(step);
+            }
+            const mouth = new THREE.Mesh(new THREE.PlaneGeometry(3.4, 1.9), new THREE.MeshBasicMaterial({ color: 0x000000, toneMapped: false }));
+            mouth.rotation.x = -Math.PI / 2;
+            mouth.position.set(0, 0.1 + STAIR_STEPS * 0.006 + 0.004, 116.6 + STAIR_STEPS * 0.82 + 0.6);
+            stairGroup.add(mouth);
+            this.scene.add(stairGroup);
+            return;
+        }
+        for (const o of ZONE.obstacles) {
+            if (o.kind === 'pillar') {
+                const g = new THREE.Group();
+                const shaft = new THREE.Mesh(new THREE.CylinderGeometry(o.r * 0.8, o.r, 2.6, 7), mat(COL.stone));
+                shaft.position.y = 1.3;
+                const cap = box(o.r * 2.3, 0.3, o.r * 2.3, mat(COL.stoneDark));
+                cap.position.y = 2.7;
+                g.add(shaft, cap);
+                g.position.set(o.x, 0, o.z);
+                g.rotation.y = r.range(0, Math.PI);
+                this.scene.add(g);
+            }
+            else if (o.kind === 'grave') {
+                const slab = box(o.r * 1.6, r.range(1, 1.5), 0.24, mat(COL.stoneDark));
+                slab.position.set(o.x, 0.55, o.z);
+                slab.rotation.y = r.range(0, Math.PI);
+                slab.rotation.z = r.range(-0.16, 0.16);
+                this.scene.add(slab);
+            }
+            else if (o.kind === 'stone') {
+                const s = new THREE.Mesh(new THREE.IcosahedronGeometry(o.r * 1.15, 0), mat(COL.stoneDark));
+                s.position.set(o.x, o.r * 0.6, o.z);
+                s.rotation.set(r.range(0, 3), r.range(0, 3), r.range(0, 3));
+                this.scene.add(s);
+            }
+            else if (o.kind === 'arch') {
+                const g = new THREE.Group();
+                const m = mat(COL.stoneDark);
+                const l = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.5, 3.6, 6), m);
+                l.position.set(-1.7, 1.8, 0);
+                const rr = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.5, 3.0, 6), m);
+                rr.position.set(1.7, 1.5, 0);
+                const lintel = box(2.2, 0.5, 0.7, m);
+                lintel.position.set(-0.8, 3.7, 0);
+                lintel.rotation.z = -0.12;
+                g.add(l, rr, lintel);
+                g.position.set(o.x, 0, o.z);
+                this.scene.add(g);
+            }
+        }
+        for (const ln of ZONE.lanterns) {
+            const g = new THREE.Group();
+            const post = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.09, 2.1, 5), mat(0x2b2723));
+            post.position.y = 1.05;
+            const cage = box(0.34, 0.4, 0.34, mat(0x1d1a16, { roughness: 0.6 }));
+            cage.position.y = 2.05;
+            const core = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 8), new THREE.MeshStandardMaterial({ color: COL.amber, emissive: COL.amber, emissiveIntensity: 2.4 }));
+            core.position.y = 2.05;
+            const light = new THREE.PointLight(COL.amber, 22, 14, 1.8);
+            light.position.y = 2.1;
+            g.add(post, cage, core, light);
+            g.position.set(ln.x, 0, ln.z);
+            this.scene.add(g);
+            this.lanternLights.push({ light, base: 22, phase: r.range(0, 6.28) });
+        }
+        const boneM = mat(COL.bone, { roughness: 1 });
+        for (let i = 0; i < 14; i++) {
+            const b = box(r.range(0.15, 0.4), 0.12, r.range(0.15, 0.5), boneM);
+            const a = r.range(0, 6.28), rad = r.range(2, 9);
+            b.position.set(ZONE.bossSpawn.x + Math.sin(a) * rad, 0.03, ZONE.bossSpawn.z + Math.cos(a) * rad);
+            b.rotation.y = r.range(0, 3);
+            this.scene.add(b);
+        }
+    }
+    makeShadow(radius) {
+        const s = new THREE.Mesh(new THREE.CircleGeometry(radius, 18), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.42, depthWrite: false }));
+        s.rotation.x = -Math.PI / 2;
+        s.position.y = 0.075;
+        return s;
+    }
+    buildPlayer() {
+        this.playerRoot = new THREE.Group();
+        this.playerShadow = this.makeShadow(0.5);
+        this.playerRoot.add(this.playerShadow);
+        this.scene.add(this.playerRoot);
+    }
+    setClass(classId, _tint) {
+        this.playerAvatar?.dispose();
+        const kind = classId === 'reaver' ? 'Knight' : 'Mage';
+        this.playerAvatar = new Avatar(kind);
+        this.playerRoot.add(this.playerAvatar.root);
+        this.prevAtk = 'idle';
+        this.prevDodging = false;
+        this.prevSipping = false;
+        this.prevParrying = false;
+        this.prevParrySuccess = false;
+        this.parryPoseT = 0;
+        this.parrySuccessT = 0;
+        this.interpPrev = null;
+        if (this.relicFx.group)
+            this.playerRoot.remove(this.relicFx.group);
+        this.relicFx = { id: null, group: null, weapon: null };
+    }
+    syncRelicVisual(sim, t) {
+        const id = sim.inventory.equipped.relic;
+        if (id !== this.relicFx.id) {
+            if (this.relicFx.group) {
+                this.playerRoot.remove(this.relicFx.group);
+                this.relicFx.group.traverse((o) => {
+                    if (o instanceof THREE.Mesh) {
+                        o.geometry.dispose();
+                        o.material.dispose();
+                    }
+                });
+            }
+            if (this.relicFx.weapon)
+                this.relicFx.weapon.mesh.material = this.relicFx.weapon.orig;
+            this.relicFx = { id, group: null, weapon: null };
+            if (id === 'mourning-edge') {
+                let wm = null;
+                this.playerRoot.traverse((o) => {
+                    if (!wm && o instanceof THREE.Mesh && (o.name === '1H_Sword' || o.name === '2H_Staff'))
+                        wm = o;
+                });
+                if (wm !== null) {
+                    const mesh = wm;
+                    const orig = mesh.material;
+                    const m = (Array.isArray(orig) ? orig[0] : orig).clone();
+                    m.emissive = new THREE.Color(0x6fe3d4);
+                    m.emissiveIntensity = 2.2;
+                    m.toneMapped = false;
+                    mesh.material = m;
+                    this.relicFx.weapon = { mesh, orig };
+                    const g = new THREE.Group();
+                    const light = new THREE.PointLight(0x6fe3d4, 5, 3.5);
+                    light.position.set(0.35, 0.9, 0.25);
+                    g.add(light);
+                    this.playerRoot.add(g);
+                    this.relicFx.group = g;
+                }
+            }
+            else if (id === 'barrow-heart') {
+                const g = new THREE.Group();
+                const ember = new THREE.Mesh(new THREE.SphereGeometry(0.09, 10, 10), new THREE.MeshBasicMaterial({ color: 0xffb35c, toneMapped: false }));
+                ember.position.set(0, 1.05, 0.36);
+                const light = new THREE.PointLight(0xff8c3a, 9, 5);
+                light.position.copy(ember.position);
+                g.add(ember, light);
+                this.playerRoot.add(g);
+                this.relicFx.group = g;
+            }
+            else if (id === 'barrow-crown') {
+                const g = new THREE.Group();
+                g.name = 'relic-barrow-crown';
+                const makeMaterial = () => new THREE.MeshStandardMaterial({
+                    color: 0x403753,
+                    metalness: 0.78,
+                    roughness: 0.28,
+                    emissive: 0x8f79ff,
