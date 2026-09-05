@@ -79,7 +79,6 @@
         const shx = sh * 0.25 * Math.sin(timeMs * 0.09);
         const shz = sh * 0.25 * Math.cos(timeMs * 0.11);
         this.camera.position.set(this.camTarget.x + off.x + shx, off.y, this.camTarget.z + off.z + shz);
-        this.camera.lookAt(this.camTarget.x + shx, 0, this.camTarget.z + off.z * 0 + shz);
         this.camera.lookAt(this.camTarget.x + shx, 0, this.camTarget.z + shz);
         this.three.render(this.scene, this.camera);
     }
