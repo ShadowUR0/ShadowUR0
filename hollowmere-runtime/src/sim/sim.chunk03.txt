@@ -1,0 +1,312 @@
+            if (e.t >= w) {
+                e.state = 'active';
+                e.t = 0;
+                e.contactDone = false;
+                if (e.attack === 'bolt') {
+                    const [dx, dz] = norm(e.lockX - e.x, e.lockZ - e.z);
+                    sim.projs.push({
+                        id: sim.nextId++,
+                        x: e.x + dx * 0.6, z: e.z + dz * 0.6,
+                        vx: dx * e.def.projSpeed, vz: dz * e.def.projSpeed,
+                        ttl: 2.2, dmg: enemyDamage(e), from: 'enemy', r: 0.3,
+                    });
+                    sim.events.push({ t: 'ebolt', id: e.id });
+                }
+                else if (e.attack === 'volley') {
+                    const [bx, bz] = norm(e.lockX - e.x, e.lockZ - e.z);
+                    const base = Math.atan2(bx, bz);
+                    const spread = (BOSS.volleySpreadDeg * Math.PI) / 180;
+                    for (let i = 0; i < BOSS.volleyCount; i++) {
+                        const a = base - spread / 2 + (spread * i) / (BOSS.volleyCount - 1);
+                        sim.projs.push({
+                            id: sim.nextId++,
+                            x: e.x + Math.sin(a) * 0.8, z: e.z + Math.cos(a) * 0.8,
+                            vx: Math.sin(a) * BOSS.volleyProjSpeed, vz: Math.cos(a) * BOSS.volleyProjSpeed,
+                            ttl: BOSS.volleyProjTtl, dmg: BOSS.volleyDmg, from: 'enemy', r: 0.3,
+                        });
+                    }
+                    e.volleyCd = BOSS.volleyCd;
+                    sim.events.push({ t: 'volley', id: e.id });
+                }
+                else if (e.attack === 'slam') {
+                    sim.events.push({ t: 'slam', id: e.id, x: e.x, z: e.z });
+                    if (dist(e.x, e.z, sim.px, sim.pz) <= BOSS.slamRadius + PLAYER.radius) {
+                        hurtPlayer(sim, BOSS.slamDmg, e, false);
+                    }
+                    e.slamCd = BOSS.slamCd;
+                }
+                else if (e.attack === 'rush') {
+                    e.rushCd = BOSS.rushCd;
+                    sim.events.push({ t: 'rush', id: e.id, x: e.x, z: e.z });
+                }
+            }
+            break;
+        }
+        case 'active': {
+            const activeT = enemyAttackTiming(e, sim).active;
+            if (e.attack === 'strike' || e.attack === 'swing') {
+                if (!e.contactDone) {
+                    const threat = enemyMeleeThreat(e);
+                    const playerDist = dist(e.x, e.z, sim.px, sim.pz);
+                    const [tx, tz] = norm(sim.px - e.x, sim.pz - e.z);
+                    const inArc = playerDist <= 1e-6
+                        || tx * e.lockX + tz * e.lockZ >= Math.cos(threat.halfAngle);
+                    if (playerDist <= threat.range + PLAYER.radius && inArc) {
+                        hurtPlayer(sim, enemyDamage(e), e, true);
+                        e.contactDone = true;
+                    }
+                }
+                if (e.attack === 'strike') {
+                    const [nx, nz] = moveCircle(sim, e.x, e.z, e.lockX * 6 * dt, e.lockZ * 6 * dt, e.def.radius, false);
+                    e.x = nx;
+                    e.z = nz;
+                }
+            }
+            if (e.attack === 'rush' && e.state === 'active') {
+                const [nx, nz] = moveCircle(sim, e.x, e.z, e.lockX * BOSS.rushSpeed * dt, e.lockZ * BOSS.rushSpeed * dt, e.def.radius, false);
+                e.x = nx;
+                e.z = nz;
+                if (!e.contactDone && dist(e.x, e.z, sim.px, sim.pz) <= e.def.radius + PLAYER.radius + 0.25) {
+                    hurtPlayer(sim, BOSS.rushDmg, e, true);
+                    e.contactDone = true;
+                }
+            }
+            if (e.state === 'active' && e.t >= activeT) {
+                e.state = 'recover';
+                e.t = 0;
+            }
+            break;
+        }
+        case 'recover':
+            if (e.t >= enemyAttackTiming(e, sim).recover) {
+                e.state = 'chase';
+                e.t = 0;
+            }
+            break;
+    }
+}
+function stepProjectiles(sim, dt) {
+    for (const p of sim.projs) {
+        p.x += p.vx * dt;
+        p.z += p.vz * dt;
+        p.ttl -= dt;
+        if (p.ttl <= 0) {
+            p.ttl = -1;
+            continue;
+        }
+        if (!walkable(p.x, p.z, 0.05)) {
+            p.ttl = -1;
+            sim.events.push({ t: 'projHit', x: p.x, z: p.z });
+            continue;
+        }
+        if (p.from === 'player') {
+            for (const e of sim.enemies) {
+                if (e.state === 'dead')
+                    continue;
+                if (dist(p.x, p.z, e.x, e.z) <= p.r + e.def.radius) {
+                    hurtEnemy(sim, e, p.dmg);
+                    p.ttl = -1;
+                    sim.events.push({ t: 'projHit', x: p.x, z: p.z });
+                    break;
+                }
+            }
+        }
+        else {
+            if (dist(p.x, p.z, sim.px, sim.pz) <= p.r + PLAYER.radius) {
+                const outcome = hurtPlayer(sim, p.dmg, null, true);
+                if (outcome === 'parry') {
+                    p.from = 'player';
+                    p.vx *= -PLAYER.parryReflectSpeedMul;
+                    p.vz *= -PLAYER.parryReflectSpeedMul;
+                    p.dmg = playerDamageValue(sim, PLAYER.parryReflectDmg);
+                    p.ttl = Math.max(p.ttl, 1.5);
+                    sim.events.push({ t: 'reflect', id: p.id, x: p.x, z: p.z });
+                }
+                else {
+                    p.ttl = -1;
+                    sim.events.push({ t: 'projHit', x: p.x, z: p.z });
+                }
+            }
+        }
+    }
+    sim.projs = sim.projs.filter(p => p.ttl > 0);
+}
+function stepTriggers(sim) {
+    for (const pd of ZONE.pockets) {
+        const ps = sim.pockets.find(p => p.id === pd.id);
+        if (ps.state === 'idle' && inRect(pd.trigger, sim.px, sim.pz)) {
+            ps.state = 'active';
+            for (const s of pd.spawns)
+                spawnEnemy(sim, s.kind, s.x, s.z, pd.id, s.elite === true);
+            sim.events.push({ t: 'pocketStart', s: pd.id });
+        }
+    }
+    if (sim.gateOpen && sim.bossState === 'unspawned' && inRect(ZONE.arenaTrigger, sim.px, sim.pz)) {
+        sim.bossState = 'active';
+        sim.pz = Math.max(sim.pz, ZONE.arenaLockZ + PLAYER.radius + 0.02);
+        spawnEnemy(sim, 'barrow', ZONE.bossSpawn.x, ZONE.bossSpawn.z, null);
+        sim.events.push({ t: 'bossSpawn' });
+        sim.events.push({ t: 'arenaLock' });
+    }
+    if (!sim.zone2Seen && sim.pz > ZONE.zone2GateZ) {
+        sim.zone2Seen = true;
+        sim.events.push({ t: 'zone2' });
+    }
+    if (!sim.victory) {
+        const p3 = sim.pockets.find(p => p.id === 'p3');
+        if (p3?.state === 'cleared' && inRect(ZONE.victoryTrigger, sim.px, sim.pz)) {
+            sim.victory = true;
+            sim.events.push({ t: 'victory' });
+        }
+    }
+}
+export function respawn(sim) {
+    if (!sim.dead)
+        return;
+    const sh = ZONE.shrines.find(s => s.id === sim.checkpoint) ?? ZONE.shrines[0];
+    sim.px = sh.x;
+    sim.pz = sh.z - 1.5;
+    sim.hp = sim.maxHp;
+    sim.flasks = PLAYER.flaskMax;
+    sim.dead = false;
+    sim.invulnT = 1;
+    sim.atk = 'idle';
+    sim.atkT = 0;
+    sim.dodgeT = -1;
+    sim.sipT = -1;
+    sim.skillCd = 0;
+    sim.skillCds = createSkillCooldowns();
+    sim.focus = sim.maxFocus;
+    sim.powerBuffT = 0;
+    sim.powerBuff = 0;
+    sim.parryT = -1;
+    sim.parryCd = 0;
+    sim.projs = [];
+    for (const p of sim.pockets)
+        if (p.state === 'active')
+            p.state = 'idle';
+    sim.enemies = sim.enemies.filter(e => {
+        if (e.pocket !== null) {
+            const ps = sim.pockets.find(q => q.id === e.pocket);
+            return ps.state === 'cleared' && e.state === 'dead';
+        }
+        return e.kind !== 'barrow';
+    });
+    if (sim.bossState === 'active') {
+        sim.bossState = 'unspawned';
+        sim.phase2 = false;
+    }
+    sim.events.push({ t: 'respawn' });
+}
+export function objective(sim) {
+    if (sim.victory)
+        return 'The deep is quiet.';
+    if (sim.bossState === 'dead') {
+        const p3 = sim.pockets.find(p => p.id === 'p3');
+        return p3?.state === 'cleared' ? 'Descend the Deep Stair' : 'Cleanse the Drowned Ossuary';
+    }
+    if (sim.bossState === 'active')
+        return 'Slay the Barrow Knight';
+    if (sim.gateOpen)
+        return 'Enter the Barrow door';
+    const zone1 = zone1Pockets(sim);
+    const cleared = zone1.filter(p => p.state === 'cleared').length;
+    return `Clear the causeway (${cleared}/${zone1.length})`;
+}
+export function step(sim, inp) {
+    sim.events = [];
+    if (sim.dead || sim.victory) {
+        sim.tick++;
+        sim.time += SIM_DT;
+        return sim.events;
+    }
+    const dt = SIM_DT;
+    stepPlayer(sim, inp, dt);
+    stepTriggers(sim);
+    for (const e of sim.enemies)
+        stepEnemy(sim, e, dt);
+    for (const e of sim.enemies) {
+        if (e.state === 'dead')
+            continue;
+        const dx = e.x - sim.px, dz = e.z - sim.pz;
+        const minD = e.def.radius + PLAYER.radius + 0.05;
+        const d = Math.hypot(dx, dz);
+        if (d > 1e-6 && d < minD) {
+            const push = minD - d;
+            const [ex2, ez2] = moveCircle(sim, e.x, e.z, (dx / d) * push, (dz / d) * push, e.def.radius, false);
+            e.x = ex2;
+            e.z = ez2;
+        }
+    }
+    for (let i = 0; i < sim.enemies.length; i++) {
+        const a = sim.enemies[i];
+        if (a.state === 'dead')
+            continue;
+        for (let j = i + 1; j < sim.enemies.length; j++) {
+            const b = sim.enemies[j];
+            if (b.state === 'dead')
+                continue;
+            const dx = b.x - a.x, dz = b.z - a.z;
+            const minD = a.def.radius + b.def.radius + 0.12;
+            const d = Math.hypot(dx, dz);
+            if (d > 1e-6 && d < minD) {
+                const push = (minD - d) / 2;
+                const ux = dx / d, uz = dz / d;
+                const [ax2, az2] = moveCircle(sim, a.x, a.z, -ux * push, -uz * push, a.def.radius, false);
+                a.x = ax2;
+                a.z = az2;
+                const [bx2, bz2] = moveCircle(sim, b.x, b.z, ux * push, uz * push, b.def.radius, false);
+                b.x = bx2;
+                b.z = bz2;
+            }
+        }
+    }
+    stepProjectiles(sim, dt);
+    sim.tick++;
+    sim.time += dt;
+    return sim.events;
+}
+export function simHash(sim) {
+    const h = new Hasher();
+    h.add(sim.tick);
+    h.add(sim.px);
+    h.add(sim.pz);
+    h.add(sim.hp);
+    h.add(sim.flasks);
+    h.add(sim.focus);
+    h.add(sim.skillPoints);
+    h.add(sim.skillRanks.skill1);
+    h.add(sim.skillRanks.skill2);
+    h.add(sim.skillRanks.skill3);
+    h.add(sim.skillRanks.ultimate);
+    h.add(sim.parryT);
+    h.add(sim.parryCd);
+    h.add(sim.souls);
+    h.add(sim.level);
+    h.add(sim.inventory.owned.includes('mourning-edge') ? 1 : 0);
+    h.add(sim.inventory.owned.includes('barrow-heart') ? 1 : 0);
+    h.add(sim.inventory.owned.includes('barrow-crown') ? 1 : 0);
+    h.add(sim.inventory.owned.includes('drowned-idol') ? 1 : 0);
+    h.add(sim.inventory.equipped.relic === 'mourning-edge' ? 1
+        : sim.inventory.equipped.relic === 'barrow-heart' ? 2
+            : sim.inventory.equipped.relic === 'barrow-crown' ? 3
+                : sim.inventory.equipped.relic === 'drowned-idol' ? 4
+                    : 0);
+    h.add(sim.gateOpen ? 1 : 0);
+    h.add(sim.bossState === 'dead' ? 1 : 0);
+    h.add(sim.enemies.length);
+    for (const e of sim.enemies) {
+        h.add(e.x);
+        h.add(e.z);
+        h.add(e.hp);
+        h.add(['idle', 'chase', 'windup', 'active', 'recover', 'return', 'dead'].indexOf(e.state));
+        h.add(e.elite ? 1 : 0);
+    }
+    h.add(sim.projs.length);
+    for (const p of sim.projs) {
+        h.add(p.x);
+        h.add(p.z);
+    }
+    return h.digest();
+}
+export { walkable, ZONE, PLAYER, CLASSES, BOSS };
