@@ -1,0 +1,102 @@
+                    const threat = enemyMeleeThreat(e);
+                    v.telegraphArc.position.set(ex, 0.09, ez);
+                    v.telegraphArc.scale.setScalar(threat.range);
+                    v.telegraphArc.rotation.z = Math.atan2(-e.lockZ, e.lockX);
+                    am.opacity = pulse * 0.8;
+                }
+                else if (e.attack === 'rush') {
+                    v.telegraphRush.position.set(ex, 0.105, ez);
+                    v.telegraphRush.scale.setScalar(BOSS.rushMaxRange);
+                    v.telegraphRush.rotation.z = Math.atan2(-e.lockZ, e.lockX);
+                    rm.opacity = pulse * 0.55;
+                }
+                else if (e.attack === 'volley') {
+                    const dx = e.lockX - ex;
+                    const dz = e.lockZ - ez;
+                    v.telegraph.position.set(ex, 0.09, ez);
+                    v.telegraph.scale.setScalar(1.1);
+                    tm.opacity = pulse * 0.6;
+                    v.telegraphFan.position.set(ex, 0.1, ez);
+                    v.telegraphFan.scale.setScalar(BOSS.volleyProjSpeed * BOSS.volleyProjTtl);
+                    v.telegraphFan.rotation.z = Math.atan2(-dz, dx);
+                    fm.opacity = pulse * 0.25;
+                }
+                else {
+                    v.telegraph.position.set(ex, 0.09, ez);
+                    v.telegraph.scale.setScalar(1.1);
+                    tm.opacity = pulse * 0.7;
+                }
+            }
+        }
+        for (const [id, v] of this.enemyViews) {
+            if (!seen.has(id)) {
+                this.scene.remove(v.root, v.telegraph, v.telegraphArc, v.telegraphFan, v.telegraphRush);
+                if (v.eliteRing)
+                    this.scene.remove(v.eliteRing);
+                this.enemyViews.delete(id);
+            }
+        }
+        this.vfx.syncProjectiles(sim, (p) => {
+            const pp = prev?.projs.get(p.id);
+            return pp ? { x: lerp1(pp.x, p.x), z: lerp1(pp.z, p.z) } : { x: p.x, z: p.z };
+        });
+        if (this.gateBars) {
+            if (sim.gateOpen && this.gateOpenT < 1) {
+                this.gateOpenT = Math.min(1, this.gateOpenT + dtReal * 0.5);
+                this.gateBars.position.y = -3.4 * this.gateOpenT;
+            }
+        }
+        if (this.zone2Gate) {
+            if (sim.bossState === 'dead' && this.zone2GateOpenT < 1) {
+                this.zone2GateOpenT = Math.min(1, this.zone2GateOpenT + dtReal * 0.5);
+                this.zone2Gate.position.y = -3.4 * this.zone2GateOpenT;
+            }
+        }
+        if (this.fogGate) {
+            const want = sim.bossState === 'active' ? 1 : 0;
+            this.fogGateT += (want - this.fogGateT) * Math.min(1, dtReal * 2.4);
+            const m = this.fogGate.material;
+            const pulse = this.reducedMotion ? 1 : 0.85 + 0.15 * Math.sin(t * 2.1);
+            m.opacity = this.fogGateT * 0.85 * pulse;
+            this.fogGate.visible = this.fogGateT > 0.02;
+        }
+        for (const s of this.shrineRunes) {
+            s.mesh.rotation.y += dtReal * 1.2;
+            s.mesh.position.y = 1.5 + Math.sin(t * 2 + (s.id === 'barrow-door' ? 2 : 0)) * 0.08;
+            const active = sim.checkpoint === s.id;
+            s.light.intensity = active ? 18 : 9;
+            s.mesh.material.emissiveIntensity = active ? 2.4 : 1.2;
+        }
+        for (const l of this.lanternLights) {
+            l.light.intensity = l.base * (0.92 + 0.08 * Math.sin(t * 9 + l.phase) * Math.sin(t * 3.7 + l.phase * 2));
+        }
+        this.vfx.step(dtReal);
+        const off = new THREE.Vector3(10.5, 14.5, 10.5).multiplyScalar(this.zoom);
+        this.camTarget.lerp(new THREE.Vector3(ppx, 0, ppz), Math.min(1, dtReal * 6));
+        if (this.shake > 0)
+            this.shake = Math.max(0, this.shake - dtReal * 2.2);
+        const sh = this.reducedMotion ? 0 : this.shake;
+        const shx = sh * 0.25 * Math.sin(timeMs * 0.09);
+        const shz = sh * 0.25 * Math.cos(timeMs * 0.11);
+        this.camera.position.set(this.camTarget.x + off.x + shx, off.y, this.camTarget.z + off.z + shz);
+        this.camera.lookAt(this.camTarget.x + shx, 0, this.camTarget.z + off.z * 0 + shz);
+        this.camera.lookAt(this.camTarget.x + shx, 0, this.camTarget.z + shz);
+        this.three.render(this.scene, this.camera);
+    }
+    setShakeEnabled(on) { this.shakeEnabled = on; if (!on)
+        this.shake = 0; }
+    addShake(n) { if (this.shakeEnabled)
+        this.shake = Math.min(1.2, this.shake + n); }
+    worldToScreen(x, y, z) {
+        const v = new THREE.Vector3(x, y, z).project(this.camera);
+        return { x: (v.x * 0.5 + 0.5) * window.innerWidth, y: (-v.y * 0.5 + 0.5) * window.innerHeight };
+    }
+    groundPoint(clientX, clientY) {
+        const ndc = new THREE.Vector2((clientX / window.innerWidth) * 2 - 1, -(clientY / window.innerHeight) * 2 + 1);
+        const ray = new THREE.Raycaster();
+        ray.setFromCamera(ndc, this.camera);
+        const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+        const hit = new THREE.Vector3();
+        return ray.ray.intersectPlane(plane, hit) ? { x: hit.x, z: hit.z } : null;
+    }
+}
