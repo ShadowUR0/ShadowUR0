@@ -1,0 +1,301 @@
+        clearPocket('p2');
+        s.gateOpen = true;
+        s.bossState = 'dead';
+        grantBossReward(s);
+        clearPocket('p3');
+    };
+    const clearZone1 = () => {
+        clearPocket('p1');
+        clearPocket('p2');
+        s.gateOpen = true;
+    };
+    if (FIXTURE === 'p1') {
+        s.px = 0;
+        s.pz = 16;
+    }
+    if (FIXTURE === 'p2') {
+        clearPocket('p1');
+        s.px = 0;
+        s.pz = 34;
+    }
+    if (FIXTURE === 'inventory')
+        clearPockets();
+    if (FIXTURE === 'boss' || FIXTURE === 'bossrush' || FIXTURE === 'bossp2') {
+        clearZone1();
+        s.checkpoint = 'barrow-door';
+        s.px = 0;
+        s.pz = 58;
+        step(s, NULL_INPUT);
+        if (FIXTURE === 'bossp2') {
+            const b = s.enemies.find(e => e.kind === 'barrow');
+            b.hp = b.maxHp * 0.42;
+        }
+        if (FIXTURE === 'bossrush') {
+            const b = s.enemies.find(e => e.kind === 'barrow');
+            b.state = 'windup';
+            b.attack = 'rush';
+            b.t = 0.08;
+            b.lockX = 0;
+            b.lockZ = -1;
+            b.faceX = 0;
+            b.faceZ = -1;
+        }
+    }
+    if (FIXTURE === 'victory') {
+        clearPockets();
+        s.victory = true;
+    }
+    if (FIXTURE === 'death') {
+        s.hp = 0;
+        s.dead = true;
+    }
+    if (FIXTURE === 'z2') {
+        clearZone1();
+        s.bossState = 'dead';
+        grantBossReward(s);
+        s.zone2Seen = true;
+        s.checkpoint = 'ossuary-gate';
+        s.px = 0;
+        s.pz = 91.5;
+    }
+}
+hud.onChoice = (c) => {
+    switch (c.t) {
+        case 'newgame':
+            startNewJourney(c.classId);
+            break;
+        case 'continue': {
+            online.disconnect();
+            onlineSession = false;
+            const save = loadSave();
+            if (save)
+                startWhenAssetsReady(() => startGame(save.classId, save));
+            break;
+        }
+        case 'respawn':
+            if (sim) {
+                respawn(sim);
+                resumePlay();
+            }
+            break;
+        case 'resume':
+            resumePlay();
+            break;
+        case 'inventory':
+            if (sim) {
+                resetHeldInput();
+                mode = 'inventory';
+                hud.showInventory(sim);
+            }
+            break;
+        case 'skills':
+            if (sim) {
+                resetHeldInput();
+                mode = 'skills';
+                hud.showSkills(sim);
+            }
+            break;
+        case 'upgradeSkill':
+            if (sim && upgradeSkill(sim, c.slot)) {
+                writeSave(sim);
+                hud.showSkills(sim);
+            }
+            break;
+        case 'settings':
+            mode = 'settings';
+            hud.showSettings(opt, !!sim);
+            break;
+        case 'howto':
+            hud.showHowTo();
+            break;
+        case 'credits':
+            hud.showCredits();
+            break;
+        case 'online':
+            mode = 'title';
+            hud.showOnline(DEFAULT_WS_URL);
+            break;
+        case 'onlineJoin':
+            onlineSession = true;
+            void online.connect(c.serverUrl.trim() || DEFAULT_WS_URL, c.room, c.name, c.classId)
+                .then(() => startWhenAssetsReady(() => startGame(c.classId, null)))
+                .catch((err) => {
+                onlineSession = false;
+                hud.showOnline(c.serverUrl.trim() || DEFAULT_WS_URL, err instanceof Error ? err.message : 'Online connection failed');
+            });
+            break;
+        case 'toggleOption':
+            toggleOption(c.key);
+            if (mode === 'settings')
+                hud.showSettings(opt, !!sim);
+            else if (mode === 'pause')
+                hud.showPause(opt.muted);
+            break;
+        case 'equip':
+            if (sim && equipItem(sim, c.itemId)) {
+                writeSave(sim);
+                hud.showInventory(sim);
+            }
+            break;
+        case 'restartAtShrine':
+            if (sim) {
+                sim.hp = 0;
+                sim.dead = true;
+                respawn(sim);
+                resumePlay();
+            }
+            break;
+        case 'title':
+            showTitle();
+            break;
+    }
+};
+function showTitle() {
+    online.disconnect();
+    onlineSession = false;
+    resetHeldInput();
+    sfx.setMusicState('off');
+    mode = 'title';
+    sim = null;
+    hud.showTitle(loadSave() !== null, VERSION);
+}
+let last = performance.now();
+let acc = 0;
+let fps = 60;
+let fpsSmooth = 60;
+function frame(now) {
+    requestAnimationFrame(frame);
+    const dtReal = Math.min(0.25, (now - last) / 1000);
+    last = now;
+    if (dtReal > 0) {
+        fps = 1 / dtReal;
+        fpsSmooth += (fps - fpsSmooth) * 0.06;
+    }
+    if (sim && (mode === 'play' || mode === 'dead' || mode === 'victory')) {
+        if (mode === 'play') {
+            acc += dtReal;
+            let guard = 0;
+            while (acc >= SIM_DT && guard < 6) {
+                renderer.beforeTick(sim);
+                const inp = gatherInput(sim);
+                const events = step(sim, inp);
+                playT += SIM_DT;
+                renderer.onEvents(events);
+                renderer.vfx.onEvents(events, sim);
+                hud.onEvents(events, sim);
+                sfx.onEvents(events);
+                const gainedReward = events.some(ev => ev.t === 'itemGain');
+                for (const ev of events) {
+                    if (ev.t === 'save' || ev.t === 'pocketCleared' || ev.t === 'gateOpen' || ev.t === 'victory' || ev.t === 'bossDown' || ev.t === 'levelup' || ev.t === 'itemGain')
+                        writeSave(sim);
+                    if (ev.t === 'gateOpen')
+                        sfx.prewarmBossBed();
+                    if (ev.t === 'slam' || ev.t === 'bossSpawn')
+                        renderer.addShake(0.7);
+                    if (ev.t === 'rush')
+                        renderer.addShake(0.45);
+                    if (ev.t === 'parry')
+                        renderer.addShake(0.3);
+                    if (ev.t === 'bossDown') {
+                        renderer.addShake(0.9);
+                        if (!gainedReward)
+                            hud.banner('THE BARROW KNIGHT FALLS');
+                    }
+                    if (ev.t === 'zone2')
+                        hud.banner('THE DROWNED OSSUARY');
+                    if (ev.t === 'playerHit')
+                        renderer.addShake(0.35);
+                }
+                if (sim.dead) {
+                    deaths++;
+                    if (BOT) {
+                        respawn(sim);
+                    }
+                    else {
+                        mode = 'dead';
+                        hud.showDeath(sim.souls);
+                    }
+                    resetHeldInput();
+                    break;
+                }
+                if (sim.victory && mode === 'play') {
+                    resetHeldInput();
+                    mode = 'victory';
+                    hud.showVictory(sim, playT, deaths);
+                    break;
+                }
+                acc -= SIM_DT;
+                guard++;
+            }
+            if (acc >= SIM_DT)
+                acc = 0;
+        }
+        {
+            const barrow = sim.enemies.find(e => e.kind === 'barrow');
+            const bossActive = !!barrow && barrow.state !== 'idle' && barrow.state !== 'dead';
+            sfx.setMusicState(sim.dead ? 'off' : bossActive ? 'boss' : 'explore');
+        }
+        renderer.setAimMarker(mode === 'play' && !BOT && opt.aimMarker ? renderer.groundPoint(mouseX, mouseY) : null);
+        renderer.sync(sim, dtReal, now, mode === 'play' ? Math.min(1, acc / SIM_DT) : 1);
+        hud.sync(sim, fpsSmooth);
+    }
+    else if (sim) {
+        renderer.sync(sim, dtReal, now);
+        hud.sync(sim, fpsSmooth);
+    }
+    else {
+        const t = now / 1000;
+        const idle = createIdleSimOnce();
+        renderer.sync(idle, dtReal, now);
+        idle.px = Math.sin(t * 0.05) * 2;
+        idle.pz = 20 + Math.sin(t * 0.033) * 14;
+    }
+    if (sim && online.connected) {
+        online.tick(dtReal, {
+            classId: sim.cls.id, x: sim.px, z: sim.pz, faceX: sim.faceX, faceZ: sim.faceZ,
+            hp: sim.hp, maxHp: sim.maxHp, level: sim.level, attack: sim.atk !== 'idle',
+        });
+    }
+}
+let idleSim = null;
+function createIdleSimOnce() {
+    if (!idleSim) {
+        idleSim = createSim(1, 'reaver');
+        renderer.setClass('reaver', 0x000000);
+        idleSim.px = 0;
+        idleSim.pz = 26;
+    }
+    return idleSim;
+}
+window.__hmReady = false;
+window.__hmR = renderer;
+window.__hmA = sfx;
+window.__hm = {
+    version: VERSION,
+    get sim() { return sim; },
+    get mode() { return mode; },
+    get fps() { return fpsSmooth; },
+    bot: BOT,
+};
+const assetsReady = renderer.preloadAssets().finally(() => {
+    assetsLoaded = true;
+    renderer.syncRemotePlayers(pendingOnlineRoster);
+    window.__hmReady = true;
+});
+function startWhenAssetsReady(go) {
+    if (assetsLoaded) {
+        go();
+        return;
+    }
+    hud.banner('WAKING THE MERE…');
+    void assetsReady.finally(go);
+}
+if (FIXTURE || BOT || FORCED_CLASS) {
+    void assetsReady.finally(() => {
+        startGame(FORCED_CLASS ?? 'reaver', null);
+    });
+}
+else {
+    showTitle();
+}
+requestAnimationFrame((n) => { last = n; requestAnimationFrame(frame); });
