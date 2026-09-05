@@ -12,4 +12,9 @@ for (const specifier of ['../sim/sim.js','../sim/content.js','../sim/items.js','
 const blobUrl = URL.createObjectURL(new Blob([source], { type: 'text/javascript' }));
 const module = await import(blobUrl);
 URL.revokeObjectURL(blobUrl);
-export const Hud = module.Hud;
+export class Hud extends module.Hud {
+  showTitle(...args) {
+    super.showTitle(...args);
+    document.getElementById('btn-online')?.remove();
+  }
+}
