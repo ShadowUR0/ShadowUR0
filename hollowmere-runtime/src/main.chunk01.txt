@@ -1,0 +1,406 @@
+import { createSim, step, respawn, makeSave, equipItem, upgradeSkill, grantPocketReward, grantBossReward, NULL_INPUT, } from './sim/sim.js';
+import { SIM_DT, ZONE, CLASSES } from './sim/content.js';
+import { botInput } from './sim/bot.js';
+import { Renderer } from './render/renderer.js';
+import { Hud } from './render/hud.js';
+import { Sfx } from './render/audio.js';
+import { OnlineClient } from './net/client.js';
+const VERSION = 'v0.6.0 — abilities of the mere';
+const Q = new URLSearchParams(location.search);
+const SEED = Number(Q.get('seed') ?? 20260727);
+const SLOT = Q.get('save') ?? 'main';
+const BOT = Q.get('bot') === '1';
+const FIXTURE = Q.get('fixture');
+const FORCED_CLASS = Q.get('class');
+const SAVE_KEY = `hollowmere:save:${SLOT}`;
+const OPT_KEY = `hollowmere:opt`;
+const DEFAULT_WS_URL = Q.get('server') ?? (location.hostname === 'localhost' || location.hostname === '127.0.0.1'
+    ? `ws://${location.hostname}:8787`
+    : `wss://${location.host}/api/ws`);
+if (Q.get('fresh') === '1')
+    localStorage.removeItem(SAVE_KEY);
+const app = document.getElementById('app');
+const renderer = new Renderer(app);
+const hud = new Hud((x, y, z) => renderer.worldToScreen(x, y, z));
+const sfx = new Sfx();
+const online = new OnlineClient();
+let assetsLoaded = false;
+let pendingOnlineRoster = [];
+online.onRoster = (players) => {
+    pendingOnlineRoster = players;
+    if (assetsLoaded)
+        renderer.syncRemotePlayers(players);
+    if (online.connected)
+        hud.setOnlineStatus(`ONLINE · ${online.room} · ${players.length + 1} PLAYER${players.length === 0 ? '' : 'S'}`, true);
+};
+online.onStatus = (status) => hud.setOnlineStatus(status, status !== 'OFFLINE');
+let sim = null;
+let mode = 'title';
+let deaths = 0;
+let playT = 0;
+let onlineSession = false;
+const opt = (() => {
+    const fallback = { muted: false, fpsVisible: true, screenShake: true, aimMarker: true };
+    try {
+        return { ...fallback, ...JSON.parse(localStorage.getItem(OPT_KEY) ?? '{}') };
+    }
+    catch {
+        return fallback;
+    }
+})();
+if (Q.get('mute') === '1')
+    opt.muted = true;
+if (Q.get('nofps') === '1')
+    opt.fpsVisible = false;
+sfx.muted = opt.muted;
+hud.fpsVisible = opt.fpsVisible;
+renderer.setShakeEnabled(opt.screenShake);
+const keys = new Set();
+let mouseX = innerWidth / 2, mouseY = innerHeight / 2;
+let lmb = false;
+const pressed = { skill: false, skill2: false, skill3: false, ultimate: false, parry: false, dodge: false, flask: false, interact: false };
+const TOUCH_ACTIVE = Q.get('touch') === '1'
+    || ('ontouchstart' in window)
+    || (typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches);
+if (TOUCH_ACTIVE)
+    document.documentElement.classList.add('hm-touch');
+let touchMoveX = 0, touchMoveZ = 0;
+let touchAimX = 0, touchAimZ = 0;
+let touchAimActive = false;
+let touchAttackHeld = false;
+let joyPointerId = null;
+let joyOriginX = 0, joyOriginY = 0;
+let aimPointerId = null;
+function resetHeldInput() {
+    keys.clear();
+    lmb = false;
+    pressed.skill = pressed.skill2 = pressed.skill3 = pressed.ultimate = pressed.parry = pressed.dodge = pressed.flask = pressed.interact = false;
+    touchMoveX = 0;
+    touchMoveZ = 0;
+    touchAimX = 0;
+    touchAimZ = 0;
+    touchAimActive = false;
+    touchAttackHeld = false;
+    joyPointerId = null;
+    aimPointerId = null;
+    hideTouchVisuals();
+}
+function enterPause() {
+    resetHeldInput();
+    mode = 'pause';
+    sfx.setMusicState('off');
+    hud.showPause(opt.muted);
+}
+function resumePlay() {
+    resetHeldInput();
+    mode = 'play';
+    hud.closePanel();
+}
+function pauseForFocusLoss() {
+    resetHeldInput();
+    if (!BOT && sim && mode === 'play')
+        enterPause();
+}
+addEventListener('keydown', (e) => {
+    if (e.repeat)
+        return;
+    keys.add(e.code);
+    sfx.unlock();
+    if (e.code === 'KeyQ')
+        pressed.skill = true;
+    if (e.code === 'Digit2')
+        pressed.skill2 = true;
+    if (e.code === 'Digit3')
+        pressed.skill3 = true;
+    if (e.code === 'Digit4')
+        pressed.ultimate = true;
+    if (e.code === 'KeyF')
+        pressed.parry = true;
+    if (e.code === 'Space') {
+        pressed.dodge = true;
+        e.preventDefault();
+    }
+    if (e.code === 'Digit1' || e.code === 'KeyR')
+        pressed.flask = true;
+    if (e.code === 'KeyE')
+        pressed.interact = true;
+    if (e.code === 'KeyM')
+        toggleOption('muted');
+    if (e.code === 'KeyV')
+        toggleOption('fpsVisible');
+    if (e.code === 'KeyK' && sim && mode === 'play') {
+        e.preventDefault();
+        resetHeldInput();
+        mode = 'skills';
+        hud.showSkills(sim);
+    }
+    if (e.code === 'Tab' && sim && mode === 'play') {
+        e.preventDefault();
+        resetHeldInput();
+        mode = 'inventory';
+        hud.showInventory(sim);
+    }
+    if (e.code === 'Escape') {
+        if (mode === 'play')
+            enterPause();
+        else if (mode === 'settings' && !sim)
+            showTitle();
+        else if (mode === 'pause' || mode === 'inventory' || mode === 'skills' || mode === 'settings')
+            resumePlay();
+    }
+});
+addEventListener('keyup', (e) => keys.delete(e.code));
+addEventListener('mousemove', (e) => { mouseX = e.clientX; mouseY = e.clientY; });
+addEventListener('mousedown', (e) => { sfx.unlock(); if (e.button === 0)
+    lmb = true; });
+addEventListener('mouseup', (e) => { if (e.button === 0)
+    lmb = false; });
+addEventListener('pointerdown', () => sfx.unlock(), { passive: true });
+addEventListener('blur', pauseForFocusLoss);
+document.addEventListener('visibilitychange', () => {
+    if (document.hidden)
+        pauseForFocusLoss();
+});
+addEventListener('contextmenu', (e) => e.preventDefault());
+function persistOpt() { localStorage.setItem(OPT_KEY, JSON.stringify(opt)); }
+function applyOptions() {
+    sfx.setMuted(opt.muted);
+    hud.fpsVisible = opt.fpsVisible;
+    renderer.setShakeEnabled(opt.screenShake);
+}
+function toggleOption(key) {
+    opt[key] = !opt[key];
+    persistOpt();
+    applyOptions();
+}
+const F = [-Math.SQRT1_2, -Math.SQRT1_2];
+const R = [Math.SQRT1_2, -Math.SQRT1_2];
+const AIM_DEADZONE = 10;
+const AIM_RADIUS = 44;
+const JOY_RADIUS = 46;
+function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+function hideTouchVisuals() {
+    document.getElementById('tjoy-base')?.classList.remove('on');
+    document.getElementById('tjoy-knob')?.classList.remove('on');
+    document.querySelectorAll('.tbtn.pressed, .ttopbtn.pressed').forEach(el => el.classList.remove('pressed'));
+}
+function setupTouchControls() {
+    const movezone = document.getElementById('touch-movezone');
+    const joyBase = document.getElementById('tjoy-base');
+    const joyKnob = document.getElementById('tjoy-knob');
+    const positionJoy = (originX, originY, knobX, knobY) => {
+        if (joyBase) {
+            joyBase.style.left = `${originX}px`;
+            joyBase.style.top = `${originY}px`;
+        }
+        if (joyKnob) {
+            joyKnob.style.left = `${knobX}px`;
+            joyKnob.style.top = `${knobY}px`;
+        }
+    };
+    if (movezone) {
+        movezone.addEventListener('pointerdown', (e) => {
+            if (joyPointerId !== null)
+                return;
+            joyPointerId = e.pointerId;
+            joyOriginX = e.clientX;
+            joyOriginY = e.clientY;
+            positionJoy(joyOriginX, joyOriginY, joyOriginX, joyOriginY);
+            joyBase?.classList.add('on');
+            joyKnob?.classList.add('on');
+            movezone.setPointerCapture(e.pointerId);
+            e.preventDefault();
+        });
+        movezone.addEventListener('pointermove', (e) => {
+            if (e.pointerId !== joyPointerId)
+                return;
+            const dx = clamp(e.clientX - joyOriginX, -JOY_RADIUS, JOY_RADIUS);
+            const dy = clamp(e.clientY - joyOriginY, -JOY_RADIUS, JOY_RADIUS);
+            positionJoy(joyOriginX, joyOriginY, joyOriginX + dx, joyOriginY + dy);
+            const rightAmt = dx / JOY_RADIUS, upAmt = -dy / JOY_RADIUS;
+            touchMoveX = upAmt * F[0] + rightAmt * R[0];
+            touchMoveZ = upAmt * F[1] + rightAmt * R[1];
+            e.preventDefault();
+        });
+        const endJoy = (e) => {
+            if (e.pointerId !== joyPointerId)
+                return;
+            joyPointerId = null;
+            touchMoveX = 0;
+            touchMoveZ = 0;
+            joyBase?.classList.remove('on');
+            joyKnob?.classList.remove('on');
+        };
+        movezone.addEventListener('pointerup', endJoy);
+        movezone.addEventListener('pointercancel', endJoy);
+    }
+    const bindPulse = (id, set) => {
+        const el = document.getElementById(id);
+        if (!el)
+            return;
+        el.addEventListener('pointerdown', (e) => {
+            set();
+            el.classList.add('pressed');
+            el.setPointerCapture(e.pointerId);
+            e.preventDefault();
+        });
+        const release = () => el.classList.remove('pressed');
+        el.addEventListener('pointerup', release);
+        el.addEventListener('pointercancel', release);
+    };
+    bindPulse('tbtn-skill1', () => { pressed.skill = true; });
+    bindPulse('tbtn-skill2', () => { pressed.skill2 = true; });
+    bindPulse('tbtn-skill3', () => { pressed.skill3 = true; });
+    bindPulse('tbtn-ultimate', () => { pressed.ultimate = true; });
+    bindPulse('tbtn-parry', () => { pressed.parry = true; });
+    bindPulse('tbtn-dodge', () => { pressed.dodge = true; });
+    bindPulse('tbtn-flask', () => { pressed.flask = true; });
+    bindPulse('tbtn-interact', () => { pressed.interact = true; });
+    const attackBtn = document.getElementById('tbtn-attack');
+    if (attackBtn) {
+        attackBtn.addEventListener('pointerdown', (e) => {
+            touchAttackHeld = true;
+            aimPointerId = e.pointerId;
+            attackBtn.classList.add('pressed');
+            attackBtn.setPointerCapture(e.pointerId);
+            e.preventDefault();
+        });
+        attackBtn.addEventListener('pointermove', (e) => {
+            if (e.pointerId !== aimPointerId)
+                return;
+            const rect = attackBtn.getBoundingClientRect();
+            const cx = rect.left + rect.width / 2, cy = rect.top + rect.height / 2;
+            const dx = e.clientX - cx, dy = e.clientY - cy;
+            if (Math.hypot(dx, dy) < AIM_DEADZONE) {
+                touchAimActive = false;
+                touchAimX = 0;
+                touchAimZ = 0;
+                return;
+            }
+            const rightAmt = clamp(dx / AIM_RADIUS, -1, 1), upAmt = clamp(-dy / AIM_RADIUS, -1, 1);
+            touchAimActive = true;
+            touchAimX = upAmt * F[0] + rightAmt * R[0];
+            touchAimZ = upAmt * F[1] + rightAmt * R[1];
+            e.preventDefault();
+        });
+        const endAttack = (e) => {
+            if (e.pointerId !== aimPointerId)
+                return;
+            aimPointerId = null;
+            touchAttackHeld = false;
+            touchAimActive = false;
+            touchAimX = 0;
+            touchAimZ = 0;
+            attackBtn.classList.remove('pressed');
+        };
+        attackBtn.addEventListener('pointerup', endAttack);
+        attackBtn.addEventListener('pointercancel', endAttack);
+    }
+    const dispatchKey = (code) => {
+        dispatchEvent(new KeyboardEvent('keydown', { code, bubbles: true, cancelable: true }));
+    };
+    document.getElementById('tbtn-pause')?.addEventListener('click', () => dispatchKey('Escape'));
+    document.getElementById('tbtn-inventory')?.addEventListener('click', () => dispatchKey('Tab'));
+    document.getElementById('tbtn-skills')?.addEventListener('click', () => dispatchKey('KeyK'));
+}
+if (TOUCH_ACTIVE)
+    setupTouchControls();
+function gatherInput(s) {
+    if (BOT)
+        return botInput(s);
+    let ix = 0, iz = 0;
+    if (keys.has('KeyW') || keys.has('ArrowUp')) {
+        ix += F[0];
+        iz += F[1];
+    }
+    if (keys.has('KeyS') || keys.has('ArrowDown')) {
+        ix -= F[0];
+        iz -= F[1];
+    }
+    if (keys.has('KeyD') || keys.has('ArrowRight')) {
+        ix += R[0];
+        iz += R[1];
+    }
+    if (keys.has('KeyA') || keys.has('ArrowLeft')) {
+        ix -= R[0];
+        iz -= R[1];
+    }
+    if (TOUCH_ACTIVE) {
+        ix += touchMoveX;
+        iz += touchMoveZ;
+    }
+    let aimX = 0, aimZ = 0;
+    if (TOUCH_ACTIVE) {
+        if (touchAimActive) {
+            aimX = touchAimX;
+            aimZ = touchAimZ;
+        }
+    }
+    else {
+        const g = renderer.groundPoint(mouseX, mouseY);
+        aimX = g ? g.x - s.px : 0;
+        aimZ = g ? g.z - s.pz : 0;
+    }
+    const inp = {
+        mx: ix, mz: iz,
+        aimX, aimZ,
+        attack: lmb || touchAttackHeld,
+        skill: pressed.skill, skill2: pressed.skill2, skill3: pressed.skill3, ultimate: pressed.ultimate, parry: pressed.parry,
+        dodge: pressed.dodge, flask: pressed.flask, interact: pressed.interact,
+    };
+    pressed.skill = pressed.skill2 = pressed.skill3 = pressed.ultimate = pressed.parry = pressed.dodge = pressed.flask = pressed.interact = false;
+    return inp;
+}
+function loadSave() {
+    try {
+        const raw = localStorage.getItem(SAVE_KEY);
+        if (!raw)
+            return null;
+        const s = JSON.parse(raw);
+        return s.v === 1 || s.v === 2 || s.v === 3 || s.v === 4 ? s : null;
+    }
+    catch {
+        return null;
+    }
+}
+function writeSave(s) {
+    if (onlineSession)
+        return;
+    localStorage.setItem(SAVE_KEY, JSON.stringify(makeSave(s)));
+}
+function startNewJourney(classId) {
+    online.disconnect();
+    onlineSession = false;
+    writeSave(createSim(SEED, classId));
+    startWhenAssetsReady(() => startGame(classId, null));
+}
+function startGame(classId, save) {
+    sim = createSim(SEED, classId, save);
+    const cls = CLASSES.find(c => c.id === classId);
+    renderer.setClass(classId, cls.tint);
+    applyFixture(sim);
+    deaths = 0;
+    playT = 0;
+    hud.closePanel();
+    hud.setBotBadge(BOT);
+    hud.banner(sim.pz > ZONE.zone2GateZ ? 'THE DROWNED OSSUARY' : ZONE.name.toUpperCase());
+    if (FIXTURE === 'inventory') {
+        mode = 'inventory';
+        hud.showInventory(sim);
+    }
+    else {
+        mode = 'play';
+    }
+}
+function applyFixture(s) {
+    if (!FIXTURE)
+        return;
+    const clearPocket = (id) => {
+        const pocket = s.pockets.find((candidate) => candidate.id === id);
+        if (!pocket)
+            return;
+        pocket.state = 'cleared';
+        grantPocketReward(s, id);
+    };
+    const clearPockets = () => {
+        clearPocket('p1');
