@@ -1,0 +1,155 @@
+import { objective } from '../sim/sim.js';
+import { PLAYER, CLASSES } from '../sim/content.js';
+import { ITEMS, inventoryEffect } from '../sim/items.js';
+import { skillFor } from '../sim/skills.js';
+const $ = (id) => document.getElementById(id);
+const SLOTS = ['skill1', 'skill2', 'skill3', 'ultimate'];
+const SLOT_KEYS = { skill1: 'Q', skill2: '2', skill3: '3', ultimate: '4' };
+export class Hud {
+    worldToScreen;
+    dmgPool = [];
+    bannerT = 0;
+    onChoice = () => { };
+    panelEl = null;
+    fpsVisible = true;
+    constructor(worldToScreen) {
+        this.worldToScreen = worldToScreen;
+        for (let i = 0; i < PLAYER.flaskMax; i++) {
+            const d = document.createElement('div');
+            d.className = 'flask';
+            $('flasks').appendChild(d);
+        }
+    }
+    sync(sim, fps) {
+        $('hpfill').style.width = `${Math.max(0, (sim.hp / sim.maxHp) * 100)}%`;
+        $('focusfill').style.width = `${Math.max(0, (sim.focus / sim.maxFocus) * 100)}%`;
+        $('focustext').textContent = `${Math.floor(sim.focus)} / ${sim.maxFocus} FOCUS`;
+        const flasks = $('flasks').children;
+        for (let i = 0; i < flasks.length; i++)
+            flasks[i].classList.toggle('full', i < sim.flasks);
+        $('souls').textContent = `◆ ${sim.souls}`;
+        $('level').textContent = `Lv ${sim.level}`;
+        $('skillpoints').textContent = sim.skillPoints > 0 ? ` · ${sim.skillPoints} SP` : '';
+        $('objective').textContent = objective(sim);
+        $('playerclass').textContent = sim.cls.name.toUpperCase();
+        const relicId = sim.inventory.equipped.relic;
+        $('relic').textContent = relicId ? `RELIC · ${ITEMS[relicId].name.toUpperCase()}` : 'NO RELIC';
+        for (const slot of SLOTS) {
+            const def = skillFor(sim.cls.id, slot);
+            const rank = sim.skillRanks[slot];
+            const box = $(`skill-${slot}`);
+            const name = $(`skillname-${slot}`);
+            const cd = $(`skillcd-${slot}`);
+            const locked = rank <= 0 || sim.level < def.requiredLevel;
+            box.classList.toggle('locked', locked);
+            box.classList.toggle('ready', !locked && sim.skillCds[slot] <= 0 && sim.focus >= def.focusCost);
+            name.textContent = locked ? (sim.level < def.requiredLevel ? `LV${def.requiredLevel}` : 'LOCK') : def.short;
+            const effectiveCd = Math.max(1.2, def.cooldown - Math.max(0, rank - 1) * 0.45);
+            cd.style.transform = `scaleY(${Math.max(0, Math.min(1, sim.skillCds[slot] / effectiveCd))})`;
+            box.setAttribute('title', `${def.name} · Rank ${rank}/${def.maxRank} · ${def.focusCost} Focus`);
+        }
+        const parryCdFrac = Math.max(0, sim.parryCd) / PLAYER.parryCd;
+        $('parrycd').style.transform = `scaleY(${parryCdFrac})`;
+        $('fps').textContent = this.fpsVisible ? `${fps.toFixed(0)} fps` : '';
+        this.syncTouchButtons(sim, parryCdFrac);
+        const boss = sim.enemies.find(e => e.kind === 'barrow');
+        const bossbar = $('bossbar');
+        if (boss && boss.state !== 'dead' && sim.bossState === 'active') {
+            bossbar.classList.remove('hidden');
+            $('bosshpfill').style.width = `${(boss.hp / boss.maxHp) * 100}%`;
+        }
+        else
+            bossbar.classList.add('hidden');
+        if (this.bannerT > 0) {
+            this.bannerT -= 1 / 60;
+            if (this.bannerT <= 0)
+                $('zonebanner').style.opacity = '0';
+        }
+    }
+    syncTouchButtons(sim, parryCdFrac) {
+        for (const slot of SLOTS) {
+            const def = skillFor(sim.cls.id, slot);
+            const rank = sim.skillRanks[slot];
+            const effectiveCd = Math.max(1.2, def.cooldown - Math.max(0, rank - 1) * 0.45);
+            const cd = document.getElementById(`tbtn-${slot}-cd`);
+            if (cd)
+                cd.style.transform = `scaleY(${Math.max(0, Math.min(1, sim.skillCds[slot] / effectiveCd))})`;
+            const btn = document.getElementById(`tbtn-${slot}`);
+            btn?.classList.toggle('depleted', rank <= 0 || sim.level < def.requiredLevel || sim.focus < def.focusCost);
+            const label = btn?.querySelector('.tlabel');
+            if (label)
+                label.textContent = rank <= 0 ? 'LOCK' : def.short;
+        }
+        const parryCd = document.getElementById('tbtn-parry-cd');
+        if (parryCd)
+            parryCd.style.transform = `scaleY(${parryCdFrac})`;
+        const dodgeCd = document.getElementById('tbtn-dodge-cd');
+        if (dodgeCd)
+            dodgeCd.style.transform = `scaleY(${Math.max(0, Math.min(1, sim.dodgeCd / PLAYER.dodgeCd))})`;
+        document.getElementById('tbtn-flask')?.classList.toggle('depleted', sim.flasks <= 0 || sim.hp >= sim.maxHp);
+    }
+    onEvents(events, sim) {
+        const hasItemGain = events.some((event) => event.t === 'itemGain');
+        for (const ev of events) {
+            if (ev.t === 'hit' && ev.x !== undefined)
+                this.damageNumber(ev.x, 1.6, ev.z, `${ev.n}`, false);
+            if (ev.t === 'playerHit') {
+                this.damageNumber(sim.px, 1.9, sim.pz, `-${ev.n}`, true);
+                this.flash();
+            }
+            if (ev.t === 'levelup')
+                this.banner(`LEVEL ${ev.n} · SKILL POINT GAINED`);
+            if (ev.t === 'skillUpgrade' && ev.s)
+                this.banner(`ABILITY UPGRADED · ${ev.s.replaceAll('-', ' ').toUpperCase()}`);
+            if (ev.t === 'pocketCleared')
+                this.banner('POCKET CLEARED');
+            if (ev.t === 'itemGain' && ev.s && ev.s in ITEMS)
+                this.banner(`RELIC FOUND · ${ITEMS[ev.s].name.toUpperCase()}`);
+            if (ev.t === 'gateOpen' && !hasItemGain)
+                this.banner('THE BARROW DOOR OPENS');
+            if (ev.t === 'bossSpawn')
+                this.banner('THE BARROW KNIGHT');
+            if (ev.t === 'shrine')
+                this.banner('SHRINE KINDLED');
+            if (ev.t === 'parry')
+                this.banner('PERFECT PARRY');
+        }
+    }
+    banner(text) {
+        const b = $('zonebanner');
+        b.textContent = text;
+        b.style.opacity = '1';
+        this.bannerT = 2.2;
+    }
+    flash() {
+        const f = $('hitflash');
+        f.style.transition = 'none';
+        f.style.opacity = '1';
+        requestAnimationFrame(() => {
+            f.style.transition = 'opacity 0.5s';
+            f.style.opacity = '0';
+        });
+    }
+    damageNumber(x, y, z, text, hurt) {
+        if (this.dmgPool.length > 24)
+            return;
+        const p = this.worldToScreen(x, y, z);
+        const el = document.createElement('div');
+        el.className = 'dmgnum' + (hurt ? ' hurt' : '');
+        el.textContent = text;
+        el.style.left = `${p.x}px`;
+        el.style.top = `${p.y}px`;
+        $('hud').appendChild(el);
+        this.dmgPool.push(el);
+        requestAnimationFrame(() => { el.style.transform = 'translateY(-46px)'; el.style.opacity = '0'; });
+        setTimeout(() => { el.remove(); this.dmgPool = this.dmgPool.filter(e => e !== el); }, 750);
+    }
+    setBotBadge(on) { $('botbadge').classList.toggle('hidden', !on); }
+    setHudVisible(on) { $('hud').style.display = on ? '' : 'none'; }
+    closePanel() { this.panelEl?.remove(); this.panelEl = null; }
+    openPanel(html, extraClass = '') {
+        this.closePanel();
+        const el = document.createElement('div');
+        el.className = `panel ${extraClass}`.trim();
+        el.innerHTML = html;
+        document.body.appendChild(el);
