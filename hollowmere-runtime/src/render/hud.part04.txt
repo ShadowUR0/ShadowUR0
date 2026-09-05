@@ -1,0 +1,18 @@
+        <article><h3>RELICS</h3><p>Major encounters award relics. Press Tab to equip one persistent boon at a time.</p></article>
+        <article><h3>SURVIVAL</h3><p>Flasks restore health. Shrines refill flasks and save progress. Death returns you to the last kindled shrine without deleting Souls.</p></article>
+      </div>
+      <div class="btnrow"><button id="btn-back">BACK</button></div>
+    `, 'scrollpanel');
+        el.querySelector('#btn-back')?.addEventListener('click', () => this.onChoice({ t: 'title' }));
+        this.prepareDialog(el, 'howto-dialog-title', '#btn-back');
+    }
+    showCredits() {
+        const el = this.openPanel(`
+      <h2 id="credits-dialog-title">CREDITS</h2>
+      <div class="creditsbox"><p>Hollowmere is built with Three.js, TypeScript, and Vite.</p><p>Source code is Apache-2.0. Shipped media assets remain governed by the provenance and licence records in CREDITS.md.</p><p>This expanded build preserves the deterministic simulation architecture of the public Hollowmere snapshot.</p></div>
+      <div class="btnrow"><button id="btn-back">BACK</button></div>
+    `);
+        el.querySelector('#btn-back')?.addEventListener('click', () => this.onChoice({ t: 'title' }));
+        this.prepareDialog(el, 'credits-dialog-title', '#btn-back');
+    }
+}
