@@ -1,0 +1,398 @@
+        sim.events.push({ t: 'nova', x: sim.px, z: sim.pz });
+    }
+    else if (def.id === 'void-lance') {
+        for (const e of sim.enemies) {
+            if (e.state === 'dead')
+                continue;
+            const dx = e.x - sim.px, dz = e.z - sim.pz;
+            const forward = dx * ax + dz * az;
+            const side = Math.abs(dx * -az + dz * ax);
+            if (forward >= 0 && forward <= def.radius && side <= 1.0 + e.def.radius)
+                hurtEnemy(sim, e, damage);
+        }
+        sim.events.push({ t: 'bolt', x: sim.px, z: sim.pz });
+    }
+    else if (def.id === 'mist-step') {
+        const blink = 5.2 + rank * 0.4;
+        for (let i = 0; i < 8; i++) {
+            const [nx, nz] = moveCircle(sim, sim.px, sim.pz, ax * (blink / 8), az * (blink / 8), PLAYER.radius, true);
+            sim.px = nx;
+            sim.pz = nz;
+        }
+        sim.invulnT = Math.max(sim.invulnT, 0.6);
+        for (const e of sim.enemies)
+            if (e.state !== 'dead' && dist(sim.px, sim.pz, e.x, e.z) <= def.radius + e.def.radius)
+                hurtEnemy(sim, e, damage);
+        sim.events.push({ t: 'dodge', x: sim.px, z: sim.pz });
+        sim.events.push({ t: 'nova', x: sim.px, z: sim.pz });
+    }
+    else if (def.id === 'eclipse') {
+        for (const e of sim.enemies) {
+            if (e.state === 'dead' || dist(sim.px, sim.pz, e.x, e.z) > def.radius + e.def.radius)
+                continue;
+            hurtEnemy(sim, e, damage);
+            e.slowT = 3.2 + rank * 0.45;
+        }
+        sim.invulnT = Math.max(sim.invulnT, 0.45);
+        sim.events.push({ t: 'nova', x: sim.px, z: sim.pz });
+    }
+    return true;
+}
+export function upgradeSkill(sim, slot) {
+    const def = skillFor(sim.cls.id, slot);
+    const rank = sim.skillRanks[slot];
+    if (sim.skillPoints <= 0 || sim.level < def.requiredLevel || rank >= def.maxRank)
+        return false;
+    sim.skillRanks[slot] = rank + 1;
+    sim.skillPoints--;
+    sim.events.push({ t: 'skillUpgrade', s: def.id, n: sim.skillRanks[slot] });
+    return true;
+}
+function stepPlayer(sim, inp, dt) {
+    const cls = sim.cls;
+    if (sim.invulnT > 0)
+        sim.invulnT -= dt;
+    for (const slot of ['skill1', 'skill2', 'skill3', 'ultimate']) {
+        if (sim.skillCds[slot] > 0)
+            sim.skillCds[slot] = Math.max(0, sim.skillCds[slot] - dt);
+    }
+    sim.skillCd = sim.skillCds.skill1;
+    sim.focus = Math.min(sim.maxFocus, sim.focus + 7 * dt);
+    if (sim.powerBuffT > 0) {
+        sim.powerBuffT = Math.max(0, sim.powerBuffT - dt);
+        if (sim.powerBuffT === 0)
+            sim.powerBuff = 0;
+    }
+    if (sim.parryCd > 0)
+        sim.parryCd -= dt;
+    if (sim.dodgeCd > 0)
+        sim.dodgeCd -= dt;
+    if (sim.parryT >= 0) {
+        sim.parryT += dt;
+        if (sim.parryT > PLAYER.parryWindow)
+            sim.parryT = -1;
+    }
+    let [ax, az] = norm(inp.aimX, inp.aimZ);
+    if (ax === 0 && az === 0) {
+        ax = sim.faceX;
+        az = sim.faceZ;
+    }
+    if (sim.sipT >= 0) {
+        sim.sipT += dt;
+        if (sim.sipT >= PLAYER.flaskSip) {
+            sim.sipT = -1;
+            sim.hp = Math.min(sim.maxHp, sim.hp + sim.maxHp * PLAYER.flaskHeal);
+            sim.events.push({ t: 'flask' });
+        }
+    }
+    else if (inp.flask && sim.flasks > 0 && sim.hp < sim.maxHp && sim.atk === 'idle' && sim.dodgeT < 0 && sim.parryT < 0) {
+        sim.flasks--;
+        sim.sipT = 0;
+        sim.events.push({ t: 'sip' });
+    }
+    if (sim.dodgeT >= 0) {
+        sim.dodgeT += dt;
+        const [nx, nz] = moveCircle(sim, sim.px, sim.pz, sim.dodgeDX * PLAYER.dodgeSpeed * dt, sim.dodgeDZ * PLAYER.dodgeSpeed * dt, PLAYER.radius, true);
+        sim.px = nx;
+        sim.pz = nz;
+        if (sim.dodgeT >= PLAYER.dodgeTime) {
+            sim.dodgeT = -1;
+            sim.dodgeCd = PLAYER.dodgeCd;
+        }
+    }
+    else if (inp.dodge && sim.dodgeCd <= 0 && sim.sipT < 0 && sim.parryT < 0) {
+        let [dx, dz] = norm(inp.mx, inp.mz);
+        if (dx === 0 && dz === 0) {
+            dx = ax;
+            dz = az;
+        }
+        sim.dodgeT = 0;
+        sim.dodgeDX = dx;
+        sim.dodgeDZ = dz;
+        sim.atk = 'idle';
+        sim.atkT = 0;
+        sim.events.push({ t: 'dodge' });
+    }
+    if (inp.parry && sim.parryCd <= 0 && sim.parryT < 0
+        && sim.atk === 'idle' && sim.dodgeT < 0 && sim.sipT < 0) {
+        sim.parryT = 0;
+        sim.parryCd = PLAYER.parryCd;
+        sim.faceX = ax;
+        sim.faceZ = az;
+        sim.events.push({ t: 'parryStart', x: sim.px, z: sim.pz });
+    }
+    if (sim.dodgeT < 0) {
+        let [mx, mz] = norm(inp.mx, inp.mz);
+        let spd = cls.speed;
+        if (sim.sipT >= 0)
+            spd *= 0.4;
+        if (sim.parryT >= 0)
+            spd *= 0.35;
+        if (sim.atk === 'windup' || sim.atk === 'active')
+            spd *= cls.melee ? 0.25 : 0.5;
+        if (mx !== 0 || mz !== 0) {
+            const [nx, nz] = moveCircle(sim, sim.px, sim.pz, mx * spd * dt, mz * spd * dt, PLAYER.radius, true);
+            sim.px = nx;
+            sim.pz = nz;
+            if (sim.atk === 'idle') {
+                sim.faceX = mx;
+                sim.faceZ = mz;
+            }
+        }
+    }
+    if (sim.atk !== 'idle') {
+        sim.faceX = sim.atkAimX;
+        sim.faceZ = sim.atkAimZ;
+    }
+    if (inp.skill)
+        useSkill(sim, 'skill1', ax, az);
+    else if (inp.skill2)
+        useSkill(sim, 'skill2', ax, az);
+    else if (inp.skill3)
+        useSkill(sim, 'skill3', ax, az);
+    else if (inp.ultimate)
+        useSkill(sim, 'ultimate', ax, az);
+    switch (sim.atk) {
+        case 'idle':
+            if (inp.attack && sim.dodgeT < 0 && sim.sipT < 0 && sim.parryT < 0) {
+                sim.atk = 'windup';
+                sim.atkT = 0;
+                sim.atkAimX = ax;
+                sim.atkAimZ = az;
+                sim.events.push({ t: 'attack' });
+            }
+            break;
+        case 'windup':
+            sim.atkT += dt;
+            if (sim.atkT >= cls.windup) {
+                sim.atk = 'active';
+                sim.atkT = 0;
+                if (cls.melee) {
+                    const arc = (cls.arcDeg * Math.PI) / 180;
+                    for (const e of sim.enemies) {
+                        if (e.state === 'dead')
+                            continue;
+                        const d = dist(sim.px, sim.pz, e.x, e.z);
+                        if (d > cls.range + e.def.radius)
+                            continue;
+                        const [tx, tz] = norm(e.x - sim.px, e.z - sim.pz);
+                        const dot = tx * sim.atkAimX + tz * sim.atkAimZ;
+                        if (Math.acos(Math.max(-1, Math.min(1, dot))) <= arc / 2) {
+                            hurtEnemy(sim, e, playerDamageValue(sim, cls.dmg));
+                        }
+                    }
+                    sim.events.push({ t: 'swing', x: sim.px, z: sim.pz });
+                }
+                else {
+                    sim.projs.push({
+                        id: sim.nextId++,
+                        x: sim.px + sim.atkAimX * 0.6, z: sim.pz + sim.atkAimZ * 0.6,
+                        vx: sim.atkAimX * cls.projSpeed, vz: sim.atkAimZ * cls.projSpeed,
+                        ttl: cls.range / cls.projSpeed, dmg: playerDamageValue(sim, cls.dmg), from: 'player', r: 0.25,
+                    });
+                    sim.events.push({ t: 'bolt', x: sim.px, z: sim.pz });
+                }
+            }
+            break;
+        case 'active':
+            sim.atkT += dt;
+            if (sim.atkT >= cls.active) {
+                sim.atk = 'recover';
+                sim.atkT = 0;
+            }
+            break;
+        case 'recover':
+            sim.atkT += dt;
+            if (sim.atkT >= cls.recover) {
+                sim.atk = 'idle';
+                sim.atkT = 0;
+            }
+            break;
+    }
+    if (sim.atk === 'active' && sim.atkT === 0)
+        sim.focus = Math.min(sim.maxFocus, sim.focus + 4);
+    if (inp.interact) {
+        for (const sh of ZONE.shrines) {
+            if (dist(sim.px, sim.pz, sh.x, sh.z) <= 1.8) {
+                sim.checkpoint = sh.id;
+                sim.flasks = PLAYER.flaskMax;
+                sim.hp = sim.maxHp;
+                sim.events.push({ t: 'shrine', s: sh.id });
+                sim.events.push({ t: 'save' });
+                break;
+            }
+        }
+    }
+}
+function enemySpeed(e, sim) {
+    let s = e.def.speed;
+    if (e.elite)
+        s *= ELITE.speedMul;
+    if (e.kind === 'barrow' && sim.phase2)
+        s *= BOSS.p2SpeedMul;
+    if (e.slowT > 0)
+        s *= PLAYER.novaSlowMul;
+    return s;
+}
+export function enemyAttackTiming(e, sim) {
+    const base = e.attack === 'rush' ? BOSS.rushWindup
+        : e.attack === 'slam' ? BOSS.slamWindup
+            : e.attack === 'volley' ? 0.5
+                : e.def.windup;
+    return {
+        windup: e.kind === 'barrow' && sim.phase2 ? base * BOSS.p2WindupMul : base,
+        active: e.attack === 'rush' ? BOSS.rushActive
+            : e.attack === 'slam' || e.attack === 'volley' || e.attack === 'bolt' ? 0.05
+                : e.def.active,
+        recover: e.attack === 'rush' ? BOSS.rushRecover : e.def.recover,
+    };
+}
+export const ENEMY_MELEE_HALF_ANGLE = Math.PI / 3;
+export function enemyMeleeThreat(e) {
+    return {
+        range: e.attack === 'strike' ? e.def.attackRange + 1.6 : e.def.attackRange,
+        halfAngle: ENEMY_MELEE_HALF_ANGLE,
+    };
+}
+function stepEnemy(sim, e, dt) {
+    if (e.state === 'dead') {
+        e.t += dt;
+        return;
+    }
+    if (e.hurtT > 0)
+        e.hurtT -= dt;
+    if (e.slowT > 0)
+        e.slowT -= dt;
+    if (e.slamCd > 0)
+        e.slamCd -= dt;
+    if (e.volleyCd > 0)
+        e.volleyCd -= dt;
+    if (e.rushCd > 0)
+        e.rushCd -= dt;
+    e.t += dt;
+    const d = dist(e.x, e.z, sim.px, sim.pz);
+    const playerAlive = !sim.dead && !sim.victory;
+    if (e.kind === 'barrow' && !sim.phase2 && e.hp <= e.maxHp * BOSS.phase2At) {
+        sim.phase2 = true;
+        sim.events.push({ t: 'bossPhase', n: 2 });
+    }
+    const moveToward = (tx, tz, mul = 1) => {
+        const [dx, dz] = norm(tx - e.x, tz - e.z);
+        const [nx, nz] = moveCircle(sim, e.x, e.z, dx * enemySpeed(e, sim) * mul * dt, dz * enemySpeed(e, sim) * mul * dt, e.def.radius, false);
+        e.x = nx;
+        e.z = nz;
+        if (dx !== 0 || dz !== 0) {
+            e.faceX = dx;
+            e.faceZ = dz;
+        }
+    };
+    switch (e.state) {
+        case 'idle':
+            if (playerAlive && d <= e.def.aggro) {
+                e.state = 'chase';
+                e.t = 0;
+                sim.events.push({ t: 'aggro', id: e.id });
+            }
+            break;
+        case 'return':
+            moveToward(e.homeX, e.homeZ);
+            if (dist(e.x, e.z, e.homeX, e.homeZ) < 0.4) {
+                e.state = 'idle';
+                e.t = 0;
+                e.hp = e.maxHp;
+            }
+            break;
+        case 'chase': {
+            if (!playerAlive) {
+                e.state = 'return';
+                e.t = 0;
+                break;
+            }
+            if (e.kind !== 'barrow' && dist(e.x, e.z, e.homeX, e.homeZ) > e.def.leash) {
+                e.state = 'return';
+                e.t = 0;
+                break;
+            }
+            if (e.kind === 'barrow') {
+                if (sim.phase2 && d >= BOSS.volleyMinRange && e.volleyCd <= 0) {
+                    e.state = 'windup';
+                    e.t = 0;
+                    e.attack = 'volley';
+                    e.lockX = sim.px;
+                    e.lockZ = sim.pz;
+                    const [lx, lz] = norm(e.lockX - e.x, e.lockZ - e.z);
+                    e.faceX = lx;
+                    e.faceZ = lz;
+                    sim.events.push({ t: 'tele', id: e.id, s: 'volley' });
+                    break;
+                }
+                if (d >= BOSS.rushMinRange && d <= BOSS.rushMaxRange && e.rushCd <= 0) {
+                    e.state = 'windup';
+                    e.t = 0;
+                    e.attack = 'rush';
+                    const [lx, lz] = norm(sim.px - e.x, sim.pz - e.z);
+                    e.lockX = lx;
+                    e.lockZ = lz;
+                    e.faceX = lx;
+                    e.faceZ = lz;
+                    sim.events.push({ t: 'tele', id: e.id, s: 'rush' });
+                    break;
+                }
+                if (d <= BOSS.slamRadius * 0.8 && e.slamCd <= 0) {
+                    e.state = 'windup';
+                    e.t = 0;
+                    e.attack = 'slam';
+                    sim.events.push({ t: 'tele', id: e.id, s: 'slam' });
+                    break;
+                }
+                if (d <= e.def.attackRange) {
+                    e.state = 'windup';
+                    e.t = 0;
+                    e.attack = 'swing';
+                    const [lx, lz] = norm(sim.px - e.x, sim.pz - e.z);
+                    e.lockX = lx;
+                    e.lockZ = lz;
+                    e.faceX = lx;
+                    e.faceZ = lz;
+                    sim.events.push({ t: 'tele', id: e.id, s: 'swing' });
+                    break;
+                }
+                moveToward(sim.px, sim.pz);
+                break;
+            }
+            if (e.def.melee) {
+                if (d <= e.def.attackRange) {
+                    e.state = 'windup';
+                    e.t = 0;
+                    e.attack = 'strike';
+                    const [lx, lz] = norm(sim.px - e.x, sim.pz - e.z);
+                    e.lockX = lx;
+                    e.lockZ = lz;
+                    e.faceX = lx;
+                    e.faceZ = lz;
+                    sim.events.push({ t: 'tele', id: e.id, s: 'strike' });
+                }
+                else
+                    moveToward(sim.px, sim.pz);
+            }
+            else {
+                if (d < e.def.preferRange - 2)
+                    moveToward(sim.px, sim.pz, -0.9);
+                else if (d > e.def.attackRange)
+                    moveToward(sim.px, sim.pz);
+                else {
+                    e.state = 'windup';
+                    e.t = 0;
+                    e.attack = 'bolt';
+                    e.lockX = sim.px;
+                    e.lockZ = sim.pz;
+                    const [fx, fz] = norm(sim.px - e.x, sim.pz - e.z);
+                    e.faceX = fx;
+                    e.faceZ = fz;
+                    sim.events.push({ t: 'tele', id: e.id, s: 'bolt' });
+                }
+            }
+            break;
+        }
+        case 'windup': {
+            const w = enemyAttackTiming(e, sim).windup;
