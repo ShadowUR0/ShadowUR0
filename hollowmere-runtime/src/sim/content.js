@@ -1,0 +1,158 @@
+export const CLASSES = [
+    {
+        id: 'reaver', name: 'Reaver', blurb: 'Close blade. High vigor. Lunging cleave.',
+        hp: 110, speed: 5.2,
+        windup: 0.16, active: 0.10, recover: 0.26,
+        melee: true, range: 2.35, arcDeg: 110, dmg: 12, projSpeed: 0,
+        skill: 'cleave', skillCd: 4, skillDmg: 22, skillRange: 3.4, tint: 0xc7854a,
+    },
+    {
+        id: 'vessel', name: 'Vessel', blurb: 'Pale bolts at range. Frost nova when crowded.',
+        hp: 85, speed: 5.0,
+        windup: 0.12, active: 0.02, recover: 0.30,
+        melee: false, range: 16, arcDeg: 0, dmg: 8, projSpeed: 14,
+        skill: 'nova', skillCd: 5, skillDmg: 12, skillRange: 3.6, tint: 0x7fd4d0,
+    },
+];
+export const ELITE = {
+    hpMul: 2.6,
+    dmgMul: 1.5,
+    soulsMul: 3,
+    speedMul: 1.1,
+    scaleMul: 1.22,
+};
+export const ENEMIES = {
+    husk: {
+        kind: 'husk', name: 'Mere Husk',
+        hp: 46, speed: 3.6, radius: 0.45, aggro: 7, leash: 15,
+        attackRange: 1.7, windup: 0.50, active: 0.12, recover: 0.80,
+        dmg: 13, melee: true, projSpeed: 0, preferRange: 0, souls: 25, scale: 1,
+    },
+    warden: {
+        kind: 'warden', name: 'Bog Warden',
+        hp: 36, speed: 2.7, radius: 0.45, aggro: 9.5, leash: 16,
+        attackRange: 9, windup: 0.90, active: 0.02, recover: 1.20,
+        dmg: 10, melee: false, projSpeed: 8.5, preferRange: 6.5, souls: 35, scale: 1,
+    },
+    barrow: {
+        kind: 'barrow', name: 'The Barrow Knight',
+        hp: 340, speed: 3.0, radius: 0.7, aggro: 12, leash: 99,
+        attackRange: 2.8, windup: 0.60, active: 0.14, recover: 0.90,
+        dmg: 22, melee: true, projSpeed: 0, preferRange: 0, souls: 300, scale: 1.6,
+    },
+    wight: {
+        kind: 'wight', name: 'Drowned Wight',
+        hp: 38, speed: 4.6, radius: 0.42, aggro: 8.5, leash: 14,
+        attackRange: 1.6, windup: 0.45, active: 0.10, recover: 0.7,
+        dmg: 15, melee: true, projSpeed: 0, preferRange: 0, souls: 40, scale: 0.95,
+    },
+};
+export const BOSS = {
+    phase2At: 0.5,
+    p2SpeedMul: 1.22,
+    p2WindupMul: 0.8,
+    rushWindup: 0.72,
+    rushActive: 0.44,
+    rushRecover: 1.15,
+    rushSpeed: 13,
+    rushDmg: 26,
+    rushMinRange: 3.6,
+    rushMaxRange: 8,
+    rushCd: 5.5,
+    rushTelegraphHalfDeg: 8,
+    slamWindup: 0.95,
+    slamRadius: 3.3,
+    slamDmg: 30,
+    slamCd: 4.5,
+    volleyCount: 5,
+    volleySpreadDeg: 50,
+    volleyDmg: 9,
+    volleyProjSpeed: 9,
+    volleyProjTtl: 2.5,
+    volleyCd: 5,
+    volleyMinRange: 4.5,
+};
+export const PLAYER = {
+    radius: 0.42,
+    dodgeSpeed: 11.5, dodgeTime: 0.28, dodgeIframe0: 0.04, dodgeIframe1: 0.24, dodgeCd: 0.9,
+    parryWindow: 0.22, parryCd: 0.9, parryStagger: 0.55, parryReflectSpeedMul: 1.35,
+    parryReflectDmg: 18,
+    flaskHeal: 0.42,
+    flaskMax: 3,
+    flaskSip: 0.6,
+    levelThresholds: [100, 260, 470, 740, 1080],
+    levelHp: 12, levelDmg: 2,
+    levelHealFrac: 0.35,
+    novaSlowMul: 0.45, novaSlowTime: 2.0,
+    hitstop: 0.0,
+    invulnAfterHit: 0.35,
+};
+export const ZONE = {
+    name: 'Hollowmere Causeway',
+    walk: [
+        { x0: -7, z0: -5, x1: 7, z1: 9 },
+        { x0: -2.2, z0: 8, x1: 2.2, z1: 65 },
+        { x0: -8.5, z0: 15, x1: 8.5, z1: 28 },
+        { x0: -9.5, z0: 33, x1: 9.5, z1: 46 },
+        { x0: -12.5, z0: 51, x1: 12.5, z1: 77 },
+        { x0: -2.2, z0: 76, x1: 2.2, z1: 96 },
+        { x0: -9, z0: 95, x1: 9, z1: 110 },
+        { x0: -6, z0: 109, x1: 6, z1: 122 },
+    ],
+    obstacles: [
+        { x: -4.6, z: 2, r: 0.55, kind: 'pillar' }, { x: 4.6, z: 2, r: 0.55, kind: 'pillar' },
+        { x: -6, z: 19, r: 0.5, kind: 'grave' }, { x: -4.4, z: 24.5, r: 0.5, kind: 'grave' },
+        { x: 5.6, z: 17.5, r: 0.5, kind: 'grave' }, { x: 6.4, z: 23, r: 0.55, kind: 'pillar' },
+        { x: -7.2, z: 36, r: 0.55, kind: 'pillar' }, { x: 7.4, z: 40, r: 0.5, kind: 'grave' },
+        { x: -5.5, z: 43, r: 0.5, kind: 'grave' }, { x: 5.8, z: 35, r: 0.5, kind: 'grave' },
+        { x: 0, z: 30.5, r: 0.9, kind: 'arch' },
+        { x: -9.5, z: 58, r: 0.8, kind: 'stone' }, { x: 9.5, z: 58, r: 0.8, kind: 'stone' },
+        { x: -10.5, z: 68, r: 0.8, kind: 'stone' }, { x: 10.5, z: 68, r: 0.8, kind: 'stone' },
+        { x: -1.9, z: 82, r: 0.45, kind: 'grave' }, { x: 1.9, z: 88, r: 0.45, kind: 'grave' },
+        { x: -8.2, z: 96.5, r: 0.55, kind: 'pillar' }, { x: 8.2, z: 106.5, r: 0.55, kind: 'pillar' },
+        { x: 0, z: 97, r: 0.6, kind: 'arch' },
+        { x: -5.5, z: 111, r: 0.5, kind: 'stone' }, { x: 5.5, z: 111, r: 0.5, kind: 'stone' },
+    ],
+    lanterns: [
+        { x: -1.9, z: 10 }, { x: 1.9, z: 14 }, { x: -1.9, z: 30.8 }, { x: 1.9, z: 30.2 },
+        { x: -1.9, z: 48 }, { x: 1.9, z: 48 }, { x: -8, z: 21.5 }, { x: 8.6, z: 39.5 },
+        { x: -8.6, z: 56.5 }, { x: 8.6, z: 56.5 }, { x: -9.6, z: 69.5 }, { x: 9.6, z: 69.5 },
+        { x: -1.9, z: 80 }, { x: 1.9, z: 86 }, { x: -1.9, z: 92 }, { x: 1.9, z: 92 },
+        { x: -8, z: 99 }, { x: 8, z: 105 }, { x: -5.5, z: 112 }, { x: 5.5, z: 112 },
+    ],
+    shrines: [
+        { id: 'mere-gate', x: 0, z: 0 },
+        { id: 'barrow-door', x: 0, z: 49 },
+        { id: 'ossuary-gate', x: 0, z: 93 },
+    ],
+    pockets: [
+        {
+            id: 'p1', zone: 1, trigger: { x0: -8.5, z0: 15, x1: 8.5, z1: 28 },
+            spawns: [
+                { kind: 'husk', x: -5, z: 21 }, { kind: 'husk', x: 5, z: 20 }, { kind: 'husk', x: 0, z: 26 },
+            ],
+        },
+        {
+            id: 'p2', zone: 1, trigger: { x0: -9.5, z0: 33, x1: 9.5, z1: 46 },
+            spawns: [
+                { kind: 'husk', x: -4, z: 38 }, { kind: 'husk', x: 4, z: 42 },
+                { kind: 'warden', x: -7, z: 44, elite: true }, { kind: 'warden', x: 7.5, z: 37 },
+            ],
+        },
+        {
+            id: 'p3', zone: 2, trigger: { x0: -9, z0: 95, x1: 9, z1: 110 },
+            spawns: [
+                { kind: 'wight', x: -5, z: 100 }, { kind: 'wight', x: 5, z: 104, elite: true },
+                { kind: 'husk', x: 0, z: 107 }, { kind: 'warden', x: -6.5, z: 108 },
+            ],
+        },
+    ],
+    bossGateZ: 50,
+    bossSpawn: { x: 0, z: 64 },
+    arenaTrigger: { x0: -12.5, z0: 53, x1: 12.5, z1: 77 },
+    arenaLockZ: 53,
+    zone2GateZ: 78,
+    victoryTrigger: { x0: -6, z0: 117, x1: 6, z1: 122 },
+    playerSpawn: { x: 0, z: -1.5 },
+};
+export const SIM_DT = 1 / 60;
