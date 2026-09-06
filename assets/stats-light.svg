@@ -9,7 +9,7 @@
         aria-labelledby="descId"
       >
         <title id="titleId">Shadow&#39;s GitHub Stats, Rank: C</title>
-        <desc id="descId">Total Commits  (last year) : 42, Total PRs: 5, Total Issues: 2</desc>
+        <desc id="descId">Total Commits  (last year) : 113, Total PRs: 5, Total Issues: 2</desc>
         <style>
           .header {
             font: 600 18px 'Segoe UI', Ubuntu, Sans-Serif;
@@ -73,7 +73,7 @@
         stroke-dashoffset: 251.32741228718345;
       }
       to {
-        stroke-dashoffset: 241.38548812746896;
+        stroke-dashoffset: 234.72334259127297;
       }
     }
   
@@ -137,7 +137,7 @@
         x="224.01"
         y="12.5"
         data-testid="commits"
-      >42</text>
+      >113</text>
     </g>
   </g><g transform="translate(0, 25)">
     <g class="stagger" style="animation-delay: 600ms" transform="translate(25, 0)">
