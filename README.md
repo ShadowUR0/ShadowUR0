@@ -22,7 +22,7 @@ Mostly building Vera — and whatever comes next</pre>
 <br>
 
 <p align="center">
-  <img src="./assets/contribution-streak.png" width="620" height="220" alt="GitHub contribution streak" />
+  <img src="./assets/contribution-streak-card.svg" width="625" alt="GitHub contribution streak" />
 </p>
 
 <p align="center">
