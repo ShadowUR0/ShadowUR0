@@ -16,13 +16,13 @@ Mostly building Vera — and whatever comes next</pre>
 <br>
 
 <p align="center">
-  <img src="./assets/contribution-streak.png" width="680" alt="GitHub contribution streak" />
+  <img src="https://skillicons.dev/icons?i=js,nodejs,nextjs,postgres,docker,git,github&perline=7" alt="Tools and technologies" />
 </p>
 
 <br>
 
 <p align="center">
-  <img src="https://skillicons.dev/icons?i=js,nodejs,nextjs,postgres,docker,git,github&perline=7" alt="Tools and technologies" />
+  <img src="./assets/contribution-streak.png" width="620" height="220" alt="GitHub contribution streak" />
 </p>
 
 <p align="center">
