@@ -22,7 +22,10 @@ Mostly building Vera — and whatever comes next</pre>
 <br>
 
 <p align="center">
-  <img src="./assets/contribution-streak-card.svg" width="625" alt="GitHub contribution streak" />
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://streak-stats.demolab.com?user=ShadowUR0&theme=tokyonight&hide_border=true&border_radius=12" />
+    <img alt="GitHub contribution streak" src="https://streak-stats.demolab.com?user=ShadowUR0&theme=default&hide_border=true&border_radius=12" />
+  </picture>
 </p>
 
 <p align="center">
