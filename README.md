@@ -23,8 +23,8 @@ Mostly building Vera — and whatever comes next</pre>
 
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://streak-stats.demolab.com?user=ShadowUR0&theme=tokyonight&hide_border=true&border_radius=12" />
-    <img alt="GitHub contribution streak" src="https://streak-stats.demolab.com?user=ShadowUR0&theme=default&hide_border=true&border_radius=12" />
+    <source media="(prefers-color-scheme: dark)" srcset="https://streak-stats.demolab.com?user=ShadowUR0&theme=tokyonight&hide_border=true&border_radius=12&v=20260908-2103" />
+    <img alt="GitHub contribution streak" src="https://streak-stats.demolab.com?user=ShadowUR0&theme=default&hide_border=true&border_radius=12&v=20260908-2103" />
   </picture>
 </p>
 
